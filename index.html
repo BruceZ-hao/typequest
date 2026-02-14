@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TypeQuest - 单词冒险</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;700;900&display=swap');
 
@@ -14,7 +17,6 @@
             overflow-x: hidden;
         }
 
-        /* 动态背景 */
         .cyber-grid {
             background-image: 
                 linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
@@ -28,13 +30,11 @@
             100% { transform: translate(50px, 50px); }
         }
 
-        /* 滚动容器 */
         .scroll-container {
             mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
             -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
         }
 
-        /* 单词样式 */
         .word {
             display: inline-flex;
             margin-right: 2rem;
@@ -90,7 +90,6 @@
             75% { transform: translateX(3px); }
         }
 
-        /* 中文翻译提示 */
         .translation {
             position: absolute;
             top: -3rem;
@@ -127,7 +126,6 @@
             border-top: 6px solid #00d9ff;
         }
 
-        /* 粒子效果 */
         .particle {
             position: absolute;
             pointer-events: none;
@@ -146,7 +144,6 @@
             }
         }
 
-        /* 词书选择器 */
         .book-selector {
             display: flex;
             gap: 0.5rem;
@@ -178,12 +175,10 @@
             box-shadow: 0 0 15px currentColor;
         }
 
-        /* 进度条 */
         .progress-glow {
             box-shadow: 0 0 10px currentColor;
         }
 
-        /* 浮动动画 */
         .float {
             animation: float 6s ease-in-out infinite;
         }
@@ -193,7 +188,6 @@
             50% { transform: translateY(-10px); }
         }
 
-        /* 音乐控制 */
         .music-control {
             animation: pulse 2s infinite;
         }
@@ -203,7 +197,6 @@
             50% { opacity: 0.7; }
         }
 
-        /* 通关特效 */
         .victory-overlay {
             background: radial-gradient(circle, rgba(0,217,255,0.2) 0%, transparent 70%);
         }
@@ -220,11 +213,33 @@
             50% { transform: scale(1.5) rotate(180deg); opacity: 1; }
             100% { transform: scale(1) rotate(360deg); opacity: 1; }
         }
+
+        /* 排行榜样式 */
+        .leaderboard-item {
+            transition: all 0.3s;
+        }
+
+        .leaderboard-item:hover {
+            transform: translateX(5px);
+            background: rgba(0, 217, 255, 0.1);
+        }
+
+        .rank-1 { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
+        .rank-2 { color: #c0c0c0; text-shadow: 0 0 10px #c0c0c0; }
+        .rank-3 { color: #cd7f32; text-shadow: 0 0 10px #cd7f32; }
+
+        .modal-enter {
+            animation: modalEnter 0.3s ease-out;
+        }
+
+        @keyframes modalEnter {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
     </style>
 </head>
 <body class="min-h-screen text-gray-100 cyber-grid relative">
 
-    <!-- 背景装饰 -->
     <div class="fixed inset-0 pointer-events-none overflow-hidden">
         <div class="absolute top-20 left-10 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl float"></div>
         <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl float" style="animation-delay: -3s;"></div>
@@ -240,7 +255,7 @@
                 </span>
                 <span class="text-white">QUEST</span>
             </h1>
-            <p class="text-gray-400 text-sm tracking-widest uppercase">单词冒险 · 8-bit音效 · 词书挑战</p>
+            <p class="text-gray-400 text-sm tracking-widest uppercase">单词冒险 · 全球排行榜 · 词书挑战</p>
         </header>
 
         <!-- 词书选择 -->
@@ -269,22 +284,26 @@
         </div>
 
         <!-- 统计面板 -->
-        <div class="flex justify-center gap-8 mb-4 text-center">
-            <div class="bg-gray-900/50 rounded-xl px-6 py-3 border border-gray-800">
+        <div class="flex justify-center gap-4 mb-4 text-center flex-wrap">
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">WPM</div>
-                <div id="wpm" class="text-3xl font-bold text-cyan-400 font-mono">0</div>
+                <div id="wpm" class="text-2xl font-bold text-cyan-400 font-mono">0</div>
             </div>
-            <div class="bg-gray-900/50 rounded-xl px-6 py-3 border border-gray-800">
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">准确率</div>
-                <div id="accuracy" class="text-3xl font-bold text-purple-400 font-mono">100%</div>
+                <div id="accuracy" class="text-2xl font-bold text-purple-400 font-mono">100%</div>
             </div>
-            <div class="bg-gray-900/50 rounded-xl px-6 py-3 border border-gray-800">
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">进度</div>
-                <div id="progress-text" class="text-3xl font-bold text-green-400 font-mono">0/0</div>
+                <div id="progress-text" class="text-2xl font-bold text-green-400 font-mono">0/0</div>
             </div>
-            <div class="bg-gray-900/50 rounded-xl px-6 py-3 border border-gray-800">
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">连击</div>
-                <div id="combo" class="text-3xl font-bold text-yellow-400 font-mono">0</div>
+                <div id="combo" class="text-2xl font-bold text-yellow-400 font-mono">0</div>
+            </div>
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800 cursor-pointer hover:border-cyan-500 transition-all" onclick="showLeaderboard()">
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">排行榜</div>
+                <div class="text-2xl">🏆</div>
             </div>
         </div>
 
@@ -296,7 +315,6 @@
         <!-- 打字区域 -->
         <div class="relative bg-gray-900/80 backdrop-blur border border-gray-700 rounded-2xl p-8 mb-4 overflow-hidden shadow-2xl" style="height: 220px;">
             
-            <!-- 开始遮罩 -->
             <div id="startOverlay" class="absolute inset-0 bg-gray-900/95 z-20 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-300">
                 <div class="text-6xl mb-3 animate-bounce">🎮</div>
                 <h2 class="text-2xl font-bold text-white mb-2">点击开始冒险</h2>
@@ -304,13 +322,12 @@
                 <div class="mt-4 flex gap-2 text-xs text-gray-500">
                     <span class="bg-gray-800 px-3 py-1 rounded-full">🎵 背景音乐</span>
                     <span class="bg-gray-800 px-3 py-1 rounded-full">🔊 8-bit音效</span>
+                    <span class="bg-gray-800 px-3 py-1 rounded-full">🏆 全球排行</span>
                 </div>
             </div>
 
-            <!-- 滚动视图 -->
             <div class="scroll-container w-full h-full flex items-center overflow-hidden relative">
                 <div id="textTrack" class="flex items-center whitespace-nowrap transition-transform duration-500 ease-out pl-[50%]">
-                    <!-- 动态生成 -->
                 </div>
             </div>
 
@@ -339,6 +356,76 @@
             <button onclick="toggleSound()" id="soundBtn" class="px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-purple-500 hover:text-purple-400 transition-all flex items-center gap-2">
                 <span id="soundIcon">🔊</span>
                 <span>音效开启</span>
+            </button>
+
+            <button onclick="showLeaderboard()" class="px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-yellow-500 hover:text-yellow-400 transition-all flex items-center gap-2">
+                <span>🏆</span>
+                <span>查看排行</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 排行榜弹窗 -->
+    <div id="leaderboardModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border-2 border-cyan-500 rounded-3xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col modal-enter">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
+                    🏆 全球排行榜
+                </h2>
+                <button onclick="closeLeaderboard()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <!-- 筛选器 -->
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2">
+                <button onclick="filterLeaderboard('all')" class="leaderboard-filter px-4 py-1 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500 text-sm active" data-filter="all">全部</button>
+                <button onclick="filterLeaderboard('cet4')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-blue-500 hover:text-blue-400" data-filter="cet4">四级</button>
+                <button onclick="filterLeaderboard('cet6')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-purple-500 hover:text-purple-400" data-filter="cet6">六级</button>
+                <button onclick="filterLeaderboard('ielts')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-red-500 hover:text-red-400" data-filter="ielts">雅思</button>
+                <button onclick="filterLeaderboard('toefl')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-orange-500 hover:text-orange-400" data-filter="toefl">托福</button>
+                <button onclick="filterLeaderboard('gre')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-green-500 hover:text-green-400" data-filter="gre">GRE</button>
+            </div>
+
+            <!-- 排行榜列表 -->
+            <div class="overflow-y-auto flex-1 pr-2" style="max-height: 50vh;">
+                <table class="w-full text-left">
+                    <thead class="text-gray-500 text-xs uppercase tracking-wider sticky top-0 bg-gray-900">
+                        <tr>
+                            <th class="pb-3 pl-2">排名</th>
+                            <th class="pb-3">玩家</th>
+                            <th class="pb-3">词书</th>
+                            <th class="pb-3 text-right">WPM</th>
+                            <th class="pb-3 text-right">准确率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody" class="text-sm">
+                        <tr>
+                            <td colspan="5" class="text-center py-8 text-gray-500">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 我的记录 -->
+            <div class="mt-4 pt-4 border-t border-gray-800">
+                <div class="text-gray-400 text-xs uppercase tracking-wider mb-2">我的最佳记录</div>
+                <div id="personalBest" class="text-sm text-gray-300">
+                    暂无记录
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置用户名弹窗 -->
+    <div id="usernameModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border-2 border-purple-500 rounded-3xl p-8 max-w-md w-full modal-enter text-center">
+            <div class="text-5xl mb-4">👾</div>
+            <h2 class="text-2xl font-bold text-white mb-2">设置玩家名称</h2>
+            <p class="text-gray-400 mb-6">输入你的名字，挑战全球排行榜！</p>
+            
+            <input type="text" id="usernameInput" class="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white text-center mb-4 focus:border-cyan-500 focus:outline-none" placeholder="输入昵称" maxlength="20">
+            
+            <button onclick="saveUsername()" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all">
+                开始冒险
             </button>
         </div>
     </div>
@@ -371,89 +458,22 @@
                 </div>
             </div>
 
-            <button onclick="closeVictory()" class="w-full py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all transform hover:scale-105 text-lg">
-                下一关 →
-            </button>
+            <div class="flex gap-3">
+                <button onclick="submitAndNext()" class="flex-1 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all transform hover:scale-105 text-lg">
+                    提交成绩 & 下一关
+                </button>
+            </div>
         </div>
     </div>
 
-    <script>
-        // ==================== 词书数据 ====================
-        const vocabularyBooks = {
-            cet4: [
-                { en: "abandon", cn: "放弃" }, { en: "ability", cn: "能力" }, { en: "absence", cn: "缺席" },
-                { en: "absolute", cn: "绝对的" }, { en: "absorb", cn: "吸收" }, { en: "abstract", cn: "抽象的" },
-                { en: "abundant", cn: "丰富的" }, { en: "academic", cn: "学术的" }, { en: "academy", cn: "学院" },
-                { en: "accelerate", cn: "加速" }, { en: "accent", cn: "口音" }, { en: "acceptance", cn: "接受" },
-                { en: "access", cn: "进入" }, { en: "accident", cn: "事故" }, { en: "accompany", cn: "陪伴" },
-                { en: "accomplish", cn: "完成" }, { en: "accord", cn: "一致" }, { en: "account", cn: "账户" },
-                { en: "accumulate", cn: "积累" }, { en: "accuracy", cn: "准确" }, { en: "accurate", cn: "精确的" },
-                { en: "accuse", cn: "控告" }, { en: "accustomed", cn: "习惯的" }, { en: "achievement", cn: "成就" },
-                { en: "acid", cn: "酸" }, { en: "acquaintance", cn: "熟人" }, { en: "acquire", cn: "获得" },
-                { en: "acre", cn: "英亩" }, { en: "adapt", cn: "适应" }, { en: "adequate", cn: "足够的" }
-            ],
-            cet6: [
-                { en: "abbreviate", cn: "缩写" }, { en: "abnormal", cn: "异常的" }, { en: "abolish", cn: "废除" },
-                { en: "abrupt", cn: "突然的" }, { en: "absurd", cn: "荒谬的" }, { en: "abundance", cn: "丰富" },
-                { en: "accessory", cn: "附件" }, { en: "accommodate", cn: "容纳" }, { en: "acquaint", cn: "使熟悉" },
-                { en: "activate", cn: "激活" }, { en: "addict", cn: "上瘾" }, { en: "adequacy", cn: "足够" },
-                { en: "adhere", cn: "坚持" }, { en: "adjacent", cn: "邻近的" }, { en: "advocate", cn: "提倡" },
-                { en: "aesthetic", cn: "美学的" }, { en: "affiliate", cn: "附属" }, { en: "affirm", cn: "肯定" },
-                { en: "afflict", cn: "折磨" }, { en: "agenda", cn: "议程" }, { en: "aggravate", cn: "加重" },
-                { en: "alleviate", cn: "减轻" }, { en: "ambiguous", cn: "模糊的" }, { en: "ambitious", cn: "有野心的" },
-                { en: "amend", cn: "修改" }, { en: "analogy", cn: "类比" }, { en: "analytic", cn: "分析的" },
-                { en: "ancestor", cn: "祖先" }, { en: "anniversary", cn: "周年" }, { en: "anonymous", cn: "匿名的" }
-            ],
-            ielts: [
-                { en: "abundant", cn: "丰富的" }, { en: "accelerate", cn: "加速" }, { en: "accessible", cn: "可进入的" },
-                { en: "accommodate", cn: "容纳" }, { en: "accomplishment", cn: "成就" }, { en: "accumulate", cn: "积累" },
-                { en: "accurate", cn: "精确的" }, { en: "achieve", cn: "达到" }, { en: "acknowledge", cn: "承认" },
-                { en: "acquaintance", cn: "熟人" }, { en: "acquire", cn: "获得" }, { en: "adequate", cn: "足够的" },
-                { en: "adjacent", cn: "邻近的" }, { en: "adjust", cn: "调整" }, { en: "administer", cn: "管理" },
-                { en: "adolescent", cn: "青少年" }, { en: "advocate", cn: "提倡" }, { en: "aesthetic", cn: "美学的" },
-                { en: "affluent", cn: "富裕的" }, { en: "aggregate", cn: "合计" }, { en: "aggressive", cn: "侵略的" },
-                { en: "allocate", cn: "分配" }, { en: "alter", cn: "改变" }, { en: "alternative", cn: "替代的" },
-                { en: "ambiguous", cn: "模糊的" }, { en: "ambitious", cn: "有野心的" }, { en: "analogy", cn: "类比" },
-                { en: "analyze", cn: "分析" }, { en: "ancestor", cn: "祖先" }, { en: "anniversary", cn: "周年" }
-            ],
-            toefl: [
-                { en: "abundant", cn: "丰富的" }, { en: "accelerate", cn: "加速" }, { en: "accessible", cn: "可进入的" },
-                { en: "accommodate", cn: "容纳" }, { en: "accompany", cn: "陪伴" }, { en: "accomplish", cn: "完成" },
-                { en: "accord", cn: "一致" }, { en: "account", cn: "账户" }, { en: "accumulate", cn: "积累" },
-                { en: "accurate", cn: "精确的" }, { en: "achieve", cn: "达到" }, { en: "acknowledge", cn: "承认" },
-                { en: "acquaint", cn: "使熟悉" }, { en: "acquire", cn: "获得" }, { en: "adequate", cn: "足够的" },
-                { en: "adjacent", cn: "邻近的" }, { en: "adjust", cn: "调整" }, { en: "administer", cn: "管理" },
-                { en: "adolescent", cn: "青少年" }, { en: "advocate", cn: "提倡" }, { en: "aesthetic", cn: "美学的" },
-                { en: "affluent", cn: "富裕的" }, { en: "aggregate", cn: "合计" }, { en: "aggressive", cn: "侵略的" },
-                { en: "allocate", cn: "分配" }, { en: "alter", cn: "改变" }, { en: "alternative", cn: "替代的" },
-                { en: "ambiguous", cn: "模糊的" }, { en: "ambitious", cn: "有野心的" }, { en: "analogy", cn: "类比" }
-            ],
-            gre: [
-                { en: "abate", cn: "减少" }, { en: "aberrant", cn: "异常的" }, { en: "abeyance", cn: "中止" },
-                { en: "abhor", cn: "憎恶" }, { en: "abject", cn: "凄惨的" }, { en: "abjure", cn: "发誓放弃" },
-                { en: "ablution", cn: "沐浴" }, { en: "abnegate", cn: "否认" }, { en: "abolitionist", cn: "废奴主义者" },
-                { en: "abominate", cn: "痛恨" }, { en: "aboriginal", cn: "土著的" }, { en: "abortive", cn: "失败的" },
-                { en: "abrade", cn: "磨损" }, { en: "abridge", cn: "删减" }, { en: "abrogate", cn: "废除" },
-                { en: "abscond", cn: "潜逃" }, { en: "absolve", cn: "赦免" }, { en: "abstain", cn: "戒除" },
-                { en: "abstemious", cn: "节制的" }, { en: "abstinent", cn: "禁欲的" }, { en: "abstracted", cn: "心不在焉的" },
-                { en: "abstruse", cn: "深奥的" }, { en: "absurdity", cn: "荒谬" }, { en: "abundant", cn: "丰富的" },
-                { en: "abuse", cn: "滥用" }, { en: "abut", cn: "邻接" }, { en: "abysmal", cn: "极坏的" },
-                { en: "academic", cn: "学术的" }, { en: "accede", cn: "同意" }, { en: "accelerate", cn: "加速" }
-            ],
-            programming: [
-                { en: "algorithm", cn: "算法" }, { en: "function", cn: "函数" }, { en: "variable", cn: "变量" },
-                { en: "constant", cn: "常量" }, { en: "database", cn: "数据库" }, { en: "interface", cn: "接口" },
-                { en: "framework", cn: "框架" }, { en: "component", cn: "组件" }, { en: "middleware", cn: "中间件" },
-                { en: "frontend", cn: "前端" }, { en: "backend", cn: "后端" }, { en: "server", cn: "服务器" },
-                { en: "client", cn: "客户端" }, { en: "network", cn: "网络" }, { en: "protocol", cn: "协议" },
-                { en: "packet", cn: "数据包" }, { en: "router", cn: "路由器" }, { en: "encryption", cn: "加密" },
-                { en: "decryption", cn: "解密" }, { en: "authentication", cn: "认证" }, { en: "authorization", cn: "授权" },
-                { en: "token", cn: "令牌" }, { en: "session", cn: "会话" }, { en: "cache", cn: "缓存" },
-                { en: "memory", cn: "内存" }, { en: "storage", cn: "存储" }, { en: "compile", cn: "编译" },
-                { en: "runtime", cn: "运行时" }, { en: "syntax", cn: "语法" }, { en: "debug", cn: "调试" }
-            ]
-        };
+    <!-- 加载词书 -->
+    <script src="js/vocabulary.js"></script>
+    <!-- Firebase 配置（需要先创建） -->
+    <script src="js/firebase-config.js"></script>
+    <!-- 排行榜逻辑 -->
+    <script src="js/leaderboard.js"></script>
 
+    <script>
         // ==================== 音频系统 ====================
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
@@ -462,45 +482,22 @@
         let musicInterval = null;
         let currentBook = 'cet4';
 
-        // 8-bit 音乐序列（超级马里奥风格）
         const musicNotes = [
-            { freq: 659.25, duration: 150 }, // E5
-            { freq: 659.25, duration: 150 }, // E5
-            { freq: 0, duration: 150 },      // rest
-            { freq: 659.25, duration: 150 }, // E5
-            { freq: 0, duration: 150 },      // rest
-            { freq: 523.25, duration: 150 }, // C5
-            { freq: 659.25, duration: 150 }, // E5
-            { freq: 0, duration: 150 },      // rest
-            { freq: 783.99, duration: 150 }, // G5
-            { freq: 0, duration: 300 },      // rest
-            { freq: 392.00, duration: 150 }, // G4
-            { freq: 0, duration: 300 },      // rest
-            { freq: 523.25, duration: 150 }, // C5
-            { freq: 0, duration: 150 },      // rest
-            { freq: 392.00, duration: 150 }, // G4
-            { freq: 0, duration: 150 },      // rest
-            { freq: 329.63, duration: 150 }, // E4
-            { freq: 0, duration: 150 },      // rest
-            { freq: 440.00, duration: 150 }, // A4
-            { freq: 493.88, duration: 150 }, // B4
-            { freq: 466.16, duration: 150 }, // A#4
-            { freq: 440.00, duration: 150 }, // A4
-            { freq: 0, duration: 150 },      // rest
-            { freq: 349.23, duration: 150 }, // F4
-            { freq: 392.00, duration: 150 }, // G4
-            { freq: 0, duration: 150 },      // rest
-            { freq: 329.63, duration: 150 }, // E4
-            { freq: 0, duration: 150 },      // rest
-            { freq: 293.66, duration: 150 }, // D4
-            { freq: 349.23, duration: 150 }, // F4
-            { freq: 0, duration: 150 },      // rest
-            { freq: 261.63, duration: 150 }, // C4
+            { freq: 659.25, duration: 150 }, { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 },
+            { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 523.25, duration: 150 },
+            { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 783.99, duration: 150 },
+            { freq: 0, duration: 300 }, { freq: 392.00, duration: 150 }, { freq: 0, duration: 300 },
+            { freq: 523.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 392.00, duration: 150 },
+            { freq: 0, duration: 150 }, { freq: 329.63, duration: 150 }, { freq: 0, duration: 150 },
+            { freq: 440.00, duration: 150 }, { freq: 493.88, duration: 150 }, { freq: 466.16, duration: 150 },
+            { freq: 440.00, duration: 150 }, { freq: 0, duration: 150 }, { freq: 349.23, duration: 150 },
+            { freq: 392.00, duration: 150 }, { freq: 0, duration: 150 }, { freq: 329.63, duration: 150 },
+            { freq: 0, duration: 150 }, { freq: 293.66, duration: 150 }, { freq: 349.23, duration: 150 },
+            { freq: 0, duration: 150 }, { freq: 261.63, duration: 150 },
         ];
 
         let musicIndex = 0;
 
-        // 初始化音频
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new AudioContext();
@@ -510,7 +507,6 @@
             }
         }
 
-        // 播放8-bit音效
         function playSound(type) {
             if (!soundEnabled || !audioCtx) return;
 
@@ -533,7 +529,6 @@
                     break;
 
                 case 'jump':
-                    // 马里奥跳跃音
                     osc.type = 'square';
                     osc.frequency.setValueAtTime(150, now);
                     osc.frequency.linearRampToValueAtTime(300, now + 0.1);
@@ -545,10 +540,9 @@
                     break;
 
                 case 'coin':
-                    // 金币音效
                     osc.type = 'square';
-                    osc.frequency.setValueAtTime(987.77, now); // B5
-                    osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+                    osc.frequency.setValueAtTime(987.77, now);
+                    osc.frequency.setValueAtTime(1318.51, now + 0.08);
                     gainNode.gain.setValueAtTime(0.1, now);
                     gainNode.gain.setValueAtTime(0.1, now + 0.08);
                     gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
@@ -567,7 +561,6 @@
                     break;
 
                 case 'powerup':
-                    // 道具升级音
                     osc.type = 'square';
                     const notes = [523.25, 659.25, 783.99, 1046.50];
                     notes.forEach((freq, i) => {
@@ -580,13 +573,11 @@
                     break;
 
                 case 'victory':
-                    // 通关胜利音乐（简短版）
                     playVictoryMusic();
                     break;
             }
         }
 
-        // 播放背景音乐
         function playBackgroundMusic() {
             if (!musicEnabled || !audioCtx) return;
             
@@ -609,13 +600,11 @@
             musicIndex = (musicIndex + 1) % musicNotes.length;
         }
 
-        // 开始背景音乐循环
         function startMusic() {
             if (musicInterval) clearInterval(musicInterval);
             musicInterval = setInterval(playBackgroundMusic, 150);
         }
 
-        // 停止背景音乐
         function stopMusic() {
             if (musicInterval) {
                 clearInterval(musicInterval);
@@ -623,7 +612,6 @@
             }
         }
 
-        // 通关胜利音乐
         function playVictoryMusic() {
             if (!audioCtx) return;
             
@@ -661,12 +649,29 @@
         let totalChars = 0;
         let maxCombo = 0;
         let currentCombo = 0;
+        let finalScoreData = null;
 
-        // 选择词书
+        // 检查并显示用户名设置
+        function checkUsername() {
+            const saved = leaderboard.getUsername();
+            if (!saved || saved.startsWith('匿名玩家_')) {
+                document.getElementById('usernameModal').classList.remove('hidden');
+                document.getElementById('usernameInput').focus();
+            }
+        }
+
+        function saveUsername() {
+            const input = document.getElementById('usernameInput');
+            const name = input.value.trim();
+            if (name) {
+                leaderboard.setUsername(name);
+                document.getElementById('usernameModal').classList.add('hidden');
+            }
+        }
+
         function selectBook(bookKey) {
             currentBook = bookKey;
             
-            // 更新按钮样式
             document.querySelectorAll('.book-btn').forEach(btn => {
                 btn.classList.remove('active');
                 btn.style.boxShadow = 'none';
@@ -680,18 +685,15 @@
             }
         }
 
-        // 生成单词列表
         function generateWords() {
             const book = vocabularyBooks[currentBook];
             words = [];
-            // 随机选择20个单词
             const shuffled = [...book].sort(() => Math.random() - 0.5);
             for (let i = 0; i < 20; i++) {
                 words.push(shuffled[i % shuffled.length]);
             }
         }
 
-        // 渲染轨道
         function renderTrack() {
             const track = document.getElementById('textTrack');
             track.innerHTML = '';
@@ -701,13 +703,11 @@
                 wordDiv.className = 'word';
                 wordDiv.id = `word-${wordIdx}`;
                 
-                // 中文翻译标签
                 const trans = document.createElement('div');
                 trans.className = 'translation';
                 trans.textContent = wordObj.cn;
                 wordDiv.appendChild(trans);
                 
-                // 字符
                 wordObj.en.split('').forEach((char, charIdx) => {
                     const charSpan = document.createElement('span');
                     charSpan.className = 'char pending text-4xl font-bold';
@@ -728,7 +728,6 @@
             updateProgress();
         }
 
-        // 滚动到当前单词
         function scrollToCurrent() {
             const currentWord = document.getElementById(`word-${currentWordIndex}`);
             if (!currentWord) return;
@@ -742,7 +741,6 @@
             
             track.style.transform = `translateX(${centerOffset - wordOffset}px)`;
             
-            // 更新底部中文提示
             const transDiv = document.getElementById('currentTranslation');
             if (currentWordIndex < words.length) {
                 transDiv.textContent = words[currentWordIndex].cn;
@@ -751,7 +749,6 @@
             }
         }
 
-        // 创建粒子
         function createParticle(x, y, color) {
             for (let i = 0; i < 6; i++) {
                 const p = document.createElement('div');
@@ -768,7 +765,6 @@
             }
         }
 
-        // 处理输入
         function handleInput(e) {
             if (!isPlaying) {
                 if (e.code === 'Space') {
@@ -793,10 +789,9 @@
             if (e.key === ' ') {
                 e.preventDefault();
                 if (currentCharIndex === currentWord.en.length) {
-                    // 完成单词
                     wordEl.classList.add('completed');
                     wordEl.classList.remove('current');
-                    playSound('coin'); // 金币音效
+                    playSound('coin');
                     
                     currentCombo++;
                     if (currentCombo > maxCombo) maxCombo = currentCombo;
@@ -856,7 +851,6 @@
             }
         }
 
-        // 更新字符
         function updateChar(wordIdx, charIdx, status) {
             const charEl = document.getElementById(`char-${wordIdx}-${charIdx}`);
             if (!charEl) return;
@@ -881,7 +875,6 @@
             }
         }
 
-        // 更新统计
         function updateStats() {
             const accuracy = totalChars === 0 ? 100 : Math.round(((totalChars - errorCount) / totalChars) * 100);
             document.getElementById('accuracy').textContent = accuracy + '%';
@@ -895,7 +888,6 @@
             updateProgress();
         }
 
-        // 更新连击
         function updateCombo() {
             const comboEl = document.getElementById('combo');
             comboEl.textContent = currentCombo;
@@ -910,15 +902,14 @@
             }
         }
 
-        // 更新进度
         function updateProgress() {
             const progress = (currentWordIndex / words.length) * 100;
             document.getElementById('progress-bar').style.width = progress + '%';
             document.getElementById('progress-text').textContent = `${currentWordIndex}/${words.length}`;
         }
 
-        // 开始游戏
         function startGame() {
+            checkUsername();
             initAudio();
             isPlaying = true;
             startTime = Date.now();
@@ -934,7 +925,6 @@
             playSound('powerup');
         }
 
-        // 完成游戏
         function completeGame() {
             isPlaying = false;
             stopMusic();
@@ -944,7 +934,6 @@
             const wpm = Math.round((words.length / minutes));
             const accuracy = Math.round(((totalChars - errorCount) / totalChars) * 100);
             
-            // 计算评级
             let rank = 'C';
             let message = '继续加油！';
             if (wpm > 100 && accuracy > 95) { rank = 'SSS'; message = '神级操作！'; }
@@ -952,13 +941,20 @@
             else if (wpm > 60 && accuracy > 85) { rank = 'A'; message = '非常出色！'; }
             else if (wpm > 40 && accuracy > 80) { rank = 'B'; message = '表现不错！'; }
             
+            finalScoreData = {
+                wpm: wpm,
+                accuracy: accuracy,
+                book: currentBook,
+                combo: maxCombo,
+                rank: rank
+            };
+            
             document.getElementById('finalWPM').textContent = wpm;
             document.getElementById('finalAcc').textContent = accuracy + '%';
             document.getElementById('finalCombo').textContent = maxCombo;
             document.getElementById('finalRank').textContent = rank;
             document.getElementById('victoryMessage').textContent = message;
             
-            // 生成星星特效
             const starsContainer = document.getElementById('starsContainer');
             starsContainer.innerHTML = '';
             for (let i = 0; i < 10; i++) {
@@ -975,13 +971,18 @@
             document.getElementById('victoryModal').classList.remove('hidden');
         }
 
-        // 关闭通关界面
+        async function submitAndNext() {
+            if (finalScoreData) {
+                await leaderboard.submitScore(finalScoreData);
+            }
+            closeVictory();
+        }
+
         function closeVictory() {
             document.getElementById('victoryModal').classList.add('hidden');
             resetGame();
         }
 
-        // 重置游戏
         function resetGame() {
             isPlaying = false;
             stopMusic();
@@ -992,6 +993,7 @@
             currentCombo = 0;
             maxCombo = 0;
             startTime = null;
+            finalScoreData = null;
             
             document.getElementById('wpm').textContent = '0';
             document.getElementById('accuracy').textContent = '100%';
@@ -1007,7 +1009,6 @@
             renderTrack();
         }
 
-        // 切换音乐
         function toggleMusic() {
             musicEnabled = !musicEnabled;
             const btn = document.getElementById('musicBtn');
@@ -1024,7 +1025,6 @@
             }
         }
 
-        // 切换音效
         function toggleSound() {
             soundEnabled = !soundEnabled;
             const btn = document.getElementById('soundBtn');
@@ -1039,9 +1039,95 @@
             }
         }
 
+        // ==================== 排行榜功能 ====================
+        let currentFilter = 'all';
+
+        function showLeaderboard() {
+            document.getElementById('leaderboardModal').classList.remove('hidden');
+            loadLeaderboard();
+            loadPersonalBest();
+        }
+
+        function closeLeaderboard() {
+            document.getElementById('leaderboardModal').classList.add('hidden');
+        }
+
+        function filterLeaderboard(book) {
+            currentFilter = book;
+            
+            document.querySelectorAll('.leaderboard-filter').forEach(btn => {
+                btn.classList.remove('active', 'bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500');
+                btn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-600');
+            });
+            
+            const activeBtn = document.querySelector(`[data-filter="${book}"]`);
+            activeBtn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-600');
+            activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500');
+            
+            loadLeaderboard();
+        }
+
+        async function loadLeaderboard() {
+            const tbody = document.getElementById('leaderboardBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">加载中...</td></tr>';
+            
+            const data = await leaderboard.getLeaderboard(currentFilter, 20);
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">暂无数据</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.map((record, index) => {
+                const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'text-gray-400';
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+                const bookColors = {
+                    cet4: 'text-blue-400',
+                    cet6: 'text-purple-400',
+                    ielts: 'text-red-400',
+                    toefl: 'text-orange-400',
+                    gre: 'text-green-400',
+                    programming: 'text-cyan-400'
+                };
+                
+                return `
+                    <tr class="leaderboard-item border-b border-gray-800">
+                        <td class="py-3 pl-2 font-bold ${rankClass}">${medal}</td>
+                        <td class="py-3 font-semibold text-white">${record.username}</td>
+                        <td class="py-3 ${bookColors[record.book] || 'text-gray-400'}">${record.book.toUpperCase()}</td>
+                        <td class="py-3 text-right font-mono text-cyan-400">${record.wpm}</td>
+                        <td class="py-3 text-right font-mono text-purple-400">${record.accuracy}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadPersonalBest() {
+            const username = leaderboard.getUsername();
+            const div = document.getElementById('personalBest');
+            
+            if (!username) {
+                div.textContent = '请先设置用户名';
+                return;
+            }
+            
+            const record = await leaderboard.getPersonalBest(username, currentBook);
+            if (record) {
+                div.innerHTML = `
+                    <span class="text-cyan-400 font-bold">${record.wpm} WPM</span>
+                    <span class="text-gray-500 mx-2">|</span>
+                    <span class="text-purple-400">${record.accuracy}% 准确率</span>
+                    <span class="text-gray-500 mx-2">|</span>
+                    <span class="text-yellow-400">${record.book.toUpperCase()}</span>
+                `;
+            } else {
+                div.textContent = '暂无记录，快来挑战吧！';
+            }
+        }
+
         // 事件监听
         document.addEventListener('keydown', (e) => {
-            if (e.target.id !== 'inputField') {
+            if (e.target.id !== 'inputField' && e.target.id !== 'usernameInput') {
                 document.getElementById('inputField').focus();
             }
             handleInput(e);
@@ -1050,7 +1136,7 @@
         document.getElementById('startOverlay').addEventListener('click', startGame);
 
         document.addEventListener('click', (e) => {
-            if (isPlaying && !e.target.closest('button') && !e.target.closest('#victoryModal')) {
+            if (isPlaying && !e.target.closest('button') && !e.target.closest('.modal')) {
                 document.getElementById('inputField').focus();
             }
         });
