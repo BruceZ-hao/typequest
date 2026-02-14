@@ -1,4 +1,3 @@
-// js/vocabulary.js
 const vocabularyBooks = {
     cet4: [
         { en: "abandon", cn: "放弃", difficulty: 1 },
@@ -193,8 +192,3 @@ const vocabularyBooks = {
         { en: "debug", cn: "调试", difficulty: 2 }
     ]
 };
-
-// 导出供其他文件使用
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = vocabularyBooks;
-}
