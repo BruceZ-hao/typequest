@@ -1,17 +1,1155 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TypeQuest 单词冒险</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TypeQuest - 单词冒险</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase Compat CDN（必须用兼容版本，不可修改） -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;700;900&display=swap');
+
+        body {
+            font-family: 'JetBrains Mono', 'Noto Sans SC', monospace;
+            background: #0a0a0f;
+            overflow-x: hidden;
+        }
+
+        .cyber-grid {
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .scroll-container {
+            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+        }
+
+        .word {
+            display: inline-flex;
+            margin-right: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .word.completed {
+            opacity: 0.3;
+            transform: scale(0.9);
+        }
+
+        .word.current {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 10px rgba(0, 217, 255, 0.5));
+        }
+
+        .char {
+            display: inline-block;
+            transition: all 0.1s;
+            position: relative;
+        }
+
+        .char.correct {
+            color: #00ff88;
+            text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+        }
+
+        .char.wrong {
+            color: #ff4444;
+            text-decoration: underline;
+            text-decoration-color: #ff4444;
+            animation: shake 0.2s;
+        }
+
+        .char.pending {
+            color: #4b5563;
+        }
+
+        .char.cursor {
+            border-bottom: 4px solid #00d9ff;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { border-bottom-color: #00d9ff; }
+            51%, 100% { border-bottom-color: transparent; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-3px); }
+            75% { transform: translateX(3px); }
+        }
+
+        .translation {
+            position: absolute;
+            top: -3rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: linear-gradient(135deg, #00d9ff, #0099cc);
+            color: #000;
+            padding: 0.4rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-family: 'Noto Sans SC', sans-serif;
+            font-weight: 800;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 4px 15px rgba(0, 217, 255, 0.4);
+            z-index: 10;
+        }
+
+        .word.completed .translation {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .translation::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid #00d9ff;
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            animation: particleFloat 0.8s ease-out forwards;
+        }
+
+        @keyframes particleFloat {
+            0% { opacity: 1; transform: translate(0, 0) scale(1); }
+            100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+        }
+
+        .book-selector {
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+            padding: 0.5rem;
+            scrollbar-width: none;
+        }
+
+        .book-selector::-webkit-scrollbar {
+            display: none;
+        }
+
+        .book-btn {
+            flex-shrink: 0;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .book-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .book-btn.active {
+            border-color: currentColor;
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        .progress-glow {
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        .float {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .music-control {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .victory-overlay {
+            background: radial-gradient(circle, rgba(0,217,255,0.2) 0%, transparent 70%);
+        }
+
+        .star {
+            position: absolute;
+            color: #ffd700;
+            font-size: 2rem;
+            animation: starPop 0.6s ease-out forwards;
+        }
+
+        @keyframes starPop {
+            0% { transform: scale(0) rotate(0deg); opacity: 0; }
+            50% { transform: scale(1.5) rotate(180deg); opacity: 1; }
+            100% { transform: scale(1) rotate(360deg); opacity: 1; }
+        }
+
+        .leaderboard-item {
+            transition: all 0.3s;
+        }
+
+        .leaderboard-item:hover {
+            transform: translateX(5px);
+            background: rgba(0, 217, 255, 0.1);
+        }
+
+        .rank-1 { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
+        .rank-2 { color: #c0c0c0; text-shadow: 0 0 10px #c0c0c0; }
+        .rank-3 { color: #cd7f32; text-shadow: 0 0 10px #cd7f32; }
+
+        .modal-enter {
+            animation: modalEnter 0.3s ease-out;
+        }
+
+        @keyframes modalEnter {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
 </head>
-<body class="bg-[#0a0a0f] text-white">
+<body class="min-h-screen text-gray-100 cyber-grid relative">
 
-  <div id="app"></div>
+    <div class="fixed inset-0 pointer-events-none overflow-hidden">
+        <div class="absolute top-20 left-10 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl float"></div>
+        <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl float" style="animation-delay: -3s;"></div>
+    </div>
 
-  <script src="js/leaderboard.js"></script>
-  <script src="js/game.js"></script>
+    <div class="relative z-10 container mx-auto px-4 py-6 max-w-6xl">
+        
+        <!-- 标题 -->
+        <header class="text-center mb-6">
+            <h1 class="text-5xl font-black mb-2 tracking-tighter">
+                <span class="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent" style="filter: drop-shadow(0 0 10px rgba(0,217,255,0.5));">
+                    TYPE
+                </span>
+                <span class="text-white">QUEST</span>
+            </h1>
+            <p class="text-gray-400 text-sm tracking-widest uppercase">单词冒险 · 全球排行榜 · 词书挑战</p>
+        </header>
+
+        <!-- 词书选择 -->
+        <div class="mb-6">
+            <div class="text-center text-gray-400 text-xs uppercase tracking-wider mb-2">选择词书</div>
+            <div class="book-selector justify-center">
+                <button onclick="selectBook('cet4')" class="book-btn bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 active" data-book="cet4" style="color: #60a5fa;">
+                    📘 四级核心
+                </button>
+                <button onclick="selectBook('cet6')" class="book-btn bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" data-book="cet6" style="color: #c084fc;">
+                    📗 六级核心
+                </button>
+                <button onclick="selectBook('ielts')" class="book-btn bg-red-500/20 text-red-400 hover:bg-red-500/30" data-book="ielts" style="color: #f87171;">
+                    📕 雅思高频
+                </button>
+                <button onclick="selectBook('toefl')" class="book-btn bg-orange-500/20 text-orange-400 hover:bg-orange-500/30" data-book="toefl" style="color: #fb923c;">
+                    📙 托福核心
+                </button>
+                <button onclick="selectBook('gre')" class="book-btn bg-green-500/20 text-green-400 hover:bg-green-500/30" data-book="gre" style="color: #4ade80;">
+                    📓 GRE3000
+                </button>
+                <button onclick="selectBook('programming')" class="book-btn bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30" data-book="programming" style="color: #22d3ee;">
+                    💻 编程术语
+                </button>
+            </div>
+        </div>
+
+        <!-- 统计面板 -->
+        <div class="flex justify-center gap-4 mb-4 text-center flex-wrap">
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">WPM</div>
+                <div id="wpm" class="text-2xl font-bold text-cyan-400 font-mono">0</div>
+            </div>
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">准确率</div>
+                <div id="accuracy" class="text-2xl font-bold text-purple-400 font-mono">100%</div>
+            </div>
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">进度</div>
+                <div id="progress-text" class="text-2xl font-bold text-green-400 font-mono">0/0</div>
+            </div>
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">连击</div>
+                <div id="combo" class="text-2xl font-bold text-yellow-400 font-mono">0</div>
+            </div>
+            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800 cursor-pointer hover:border-cyan-500 transition-all" onclick="showLeaderboard()">
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">排行榜</div>
+                <div class="text-2xl">🏆</div>
+            </div>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="w-full max-w-2xl mx-auto bg-gray-800 rounded-full h-2 mb-6 overflow-hidden">
+            <div id="progress-bar" class="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 w-0 transition-all duration-300 progress-glow"></div>
+        </div>
+
+        <!-- 打字区域 -->
+        <div class="relative bg-gray-900/80 backdrop-blur border border-gray-700 rounded-2xl p-8 mb-4 overflow-hidden shadow-2xl" style="height: 220px;">
+            
+            <div id="startOverlay" class="absolute inset-0 bg-gray-900/95 z-20 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-300">
+                <div class="text-6xl mb-3 animate-bounce">🎮</div>
+                <h2 class="text-2xl font-bold text-white mb-2">点击开始冒险</h2>
+                <p class="text-gray-400 text-sm">按空格键或点击此处开始</p>
+                <div class="mt-4 flex gap-2 text-xs text-gray-500">
+                    <span class="bg-gray-800 px-3 py-1 rounded-full">🎵 背景音乐</span>
+                    <span class="bg-gray-800 px-3 py-1 rounded-full">🔊 8-bit音效</span>
+                    <span class="bg-gray-800 px-3 py-1 rounded-full">🏆 全球排行</span>
+                </div>
+            </div>
+
+            <div class="scroll-container w-full h-full flex items-center overflow-hidden relative">
+                <div id="textTrack" class="flex items-center whitespace-nowrap transition-transform duration-500 ease-out pl-[50%]">
+                </div>
+            </div>
+
+            <input type="text" id="inputField" class="absolute opacity-0 top-0 left-0 w-full h-full cursor-default" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+
+        <!-- 当前单词中文 -->
+        <div class="text-center mb-6 h-16 flex items-center justify-center">
+            <div id="currentTranslation" class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 opacity-0 transition-all duration-300 transform translate-y-4 font-sans">
+                准备开始...
+            </div>
+        </div>
+
+        <!-- 控制区 -->
+        <div class="flex justify-center gap-4 flex-wrap">
+            <button onclick="resetGame()" class="group px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center gap-2">
+                <svg class="w-5 h-5 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                重新开始
+            </button>
+            
+            <button onclick="toggleMusic()" id="musicBtn" class="music-control px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-green-500 hover:text-green-400 transition-all flex items-center gap-2">
+                <span id="musicIcon">🎵</span>
+                <span>音乐开启</span>
+            </button>
+            
+            <button onclick="toggleSound()" id="soundBtn" class="px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-purple-500 hover:text-purple-400 transition-all flex items-center gap-2">
+                <span id="soundIcon">🔊</span>
+                <span>音效开启</span>
+            </button>
+
+            <button onclick="showLeaderboard()" class="px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-yellow-500 hover:text-yellow-400 transition-all flex items-center gap-2">
+                <span>🏆</span>
+                <span>查看排行</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 排行榜弹窗 -->
+    <div id="leaderboardModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border-2 border-cyan-500 rounded-3xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col modal-enter">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
+                    🏆 全球排行榜
+                </h2>
+                <button onclick="closeLeaderboard()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <!-- 筛选器 -->
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2">
+                <button onclick="filterLeaderboard('all')" class="leaderboard-filter px-4 py-1 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500 text-sm active" data-filter="all">全部</button>
+                <button onclick="filterLeaderboard('cet4')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-blue-500 hover:text-blue-400" data-filter="cet4">四级</button>
+                <button onclick="filterLeaderboard('cet6')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-purple-500 hover:text-purple-400" data-filter="cet6">六级</button>
+                <button onclick="filterLeaderboard('ielts')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-red-500 hover:text-red-400" data-filter="ielts">雅思</button>
+                <button onclick="filterLeaderboard('toefl')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-orange-500 hover:text-orange-400" data-filter="toefl">托福</button>
+                <button onclick="filterLeaderboard('gre')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-green-500 hover:text-green-400" data-filter="gre">GRE</button>
+            </div>
+
+            <!-- 排行榜列表 -->
+            <div class="overflow-y-auto flex-1 pr-2" style="max-height: 50vh;">
+                <table class="w-full text-left">
+                    <thead class="text-gray-500 text-xs uppercase tracking-wider sticky top-0 bg-gray-900">
+                        <tr>
+                            <th class="pb-3 pl-2">排名</th>
+                            <th class="pb-3">玩家</th>
+                            <th class="pb-3">词书</th>
+                            <th class="pb-3 text-right">WPM</th>
+                            <th class="pb-3 text-right">准确率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody" class="text-sm">
+                        <tr>
+                            <td colspan="5" class="text-center py-8 text-gray-500">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 我的记录 -->
+            <div class="mt-4 pt-4 border-t border-gray-800">
+                <div class="text-gray-400 text-xs uppercase tracking-wider mb-2">我的最佳记录</div>
+                <div id="personalBest" class="text-sm text-gray-300">
+                    暂无记录
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置用户名弹窗 -->
+    <div id="usernameModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border-2 border-purple-500 rounded-3xl p-8 max-w-md w-full modal-enter text-center">
+            <div class="text-5xl mb-4">👾</div>
+            <h2 class="text-2xl font-bold text-white mb-2">设置玩家名称</h2>
+            <p class="text-gray-400 mb-6">输入你的名字，挑战全球排行榜！</p>
+            
+            <input type="text" id="usernameInput" class="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white text-center mb-4 focus:border-cyan-500 focus:outline-none" placeholder="输入昵称" maxlength="20">
+            
+            <button onclick="saveUsername()" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all">
+                开始冒险
+            </button>
+        </div>
+    </div>
+
+    <!-- 通关弹窗 -->
+    <div id="victoryModal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4 victory-overlay">
+        <div class="bg-gray-900 border-2 border-cyan-500 rounded-3xl p-8 max-w-md w-full text-center relative overflow-hidden shadow-2xl">
+            <div id="starsContainer" class="absolute inset-0 pointer-events-none"></div>
+            
+            <div class="text-6xl mb-4 animate-bounce">🏆</div>
+            <h2 class="text-4xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">关卡完成!</h2>
+            <p class="text-gray-400 mb-6" id="victoryMessage">太棒了！</p>
+            
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <div class="text-gray-400 text-sm mb-1">最终WPM</div>
+                    <div class="text-4xl font-bold text-cyan-400 font-mono" id="finalWPM">0</div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <div class="text-gray-400 text-sm mb-1">准确率</div>
+                    <div class="text-4xl font-bold text-purple-400 font-mono" id="finalAcc">0%</div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <div class="text-gray-400 text-sm mb-1">最高连击</div>
+                    <div class="text-4xl font-bold text-yellow-400 font-mono" id="finalCombo">0</div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <div class="text-gray-400 text-sm mb-1">评级</div>
+                    <div class="text-4xl font-bold text-green-400" id="finalRank">S</div>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="showLeaderboardFromVictory()" class="flex-1 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-pink-500 hover:text-pink-400 transition-all font-bold">
+                    🏆 排行榜
+                </button>
+                <button onclick="submitAndNext()" class="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all transform hover:scale-105 text-lg">
+                    提交成绩 & 下一关
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本加载顺序不可修改 -->
+    <script src="js/vocabulary.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/leaderboard.js"></script>
+
+    <script>
+        // ==================== 音频系统 ====================
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let soundEnabled = true;
+        let musicEnabled = true;
+        let musicInterval = null;
+        let currentBook = 'cet4';
+
+        // 超级马里奥风格8-bit背景音乐
+        const musicNotes = [
+            { freq: 659.25, duration: 150 }, { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 },
+            { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 523.25, duration: 150 },
+            { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 783.99, duration: 150 },
+            { freq: 0, duration: 300 }, { freq: 392.00, duration: 150 }, { freq: 0, duration: 300 },
+            { freq: 523.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 392.00, duration: 150 },
+            { freq: 0, duration: 150 }, { freq: 329.63, duration: 150 }, { freq: 0, duration: 150 },
+            { freq: 440.00, duration: 150 }, { freq: 493.88, duration: 150 }, { freq: 466.16, duration: 150 },
+            { freq: 440.00, duration: 150 }, { freq: 0, duration: 150 }, { freq: 349.23, duration: 150 },
+            { freq: 392.00, duration: 150 }, { freq: 0, duration: 150 }, { freq: 329.63, duration: 150 },
+            { freq: 0, duration: 150 }, { freq: 293.66, duration: 150 }, { freq: 349.23, duration: 150 },
+            { freq: 0, duration: 150 }, { freq: 261.63, duration: 150 },
+        ];
+
+        let musicIndex = 0;
+
+        // 初始化音频
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // 播放音效
+        function playSound(type) {
+            if (!soundEnabled || !audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            switch(type) {
+                case 'key':
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                    break;
+
+                case 'jump':
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(300, now + 0.1);
+                    osc.frequency.linearRampToValueAtTime(120, now + 0.2);
+                    gainNode.gain.setValueAtTime(0.15, now);
+                    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                    break;
+
+                case 'coin':
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(987.77, now);
+                    osc.frequency.setValueAtTime(1318.51, now + 0.08);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.setValueAtTime(0.1, now + 0.08);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                    break;
+
+                case 'error':
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.linearRampToValueAtTime(50, now + 0.2);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                    break;
+
+                case 'powerup':
+                    osc.type = 'square';
+                    const notes = [523.25, 659.25, 783.99, 1046.50];
+                    notes.forEach((freq, i) => {
+                        osc.frequency.setValueAtTime(freq, now + i * 0.1);
+                    });
+                    gainNode.gain.setValueAtTime(0.15, now);
+                    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                    break;
+
+                case 'victory':
+                    playVictoryMusic();
+                    break;
+            }
+        }
+
+        // 播放背景音乐
+        function playBackgroundMusic() {
+            if (!musicEnabled || !audioCtx) return;
+            
+            const note = musicNotes[musicIndex];
+            if (note.freq > 0) {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(note.freq, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + note.duration / 1000);
+                
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + note.duration / 1000);
+            }
+            
+            musicIndex = (musicIndex + 1) % musicNotes.length;
+        }
+
+        // 开始背景音乐循环
+        function startMusic() {
+            if (musicInterval) clearInterval(musicInterval);
+            musicInterval = setInterval(playBackgroundMusic, 150);
+        }
+
+        // 停止背景音乐
+        function stopMusic() {
+            if (musicInterval) {
+                clearInterval(musicInterval);
+                musicInterval = null;
+            }
+        }
+
+        // 通关胜利音乐
+        function playVictoryMusic() {
+            if (!audioCtx) return;
+            
+            const victoryNotes = [
+                { f: 523.25, d: 0.1 }, { f: 523.25, d: 0.1 }, { f: 523.25, d: 0.1 },
+                { f: 659.25, d: 0.3 }, { f: 783.99, d: 0.1 }, { f: 783.99, d: 0.1 },
+                { f: 783.99, d: 0.1 }, { f: 880.00, d: 0.3 }
+            ];
+            
+            let time = audioCtx.currentTime;
+            victoryNotes.forEach(note => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(note.f, time);
+                gain.gain.setValueAtTime(0.15, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + note.d);
+                
+                osc.start(time);
+                osc.stop(time + note.d);
+                time += note.d;
+            });
+        }
+
+        // ==================== 游戏逻辑 ====================
+        let words = [];
+        let currentWordIndex = 0;
+        let currentCharIndex = 0;
+        let isPlaying = false;
+        let startTime = null;
+        let errorCount = 0;
+        let totalChars = 0;
+        let maxCombo = 0;
+        let currentCombo = 0;
+        let finalScoreData = null;
+
+        // 检查并显示用户名设置
+        function checkUsername() {
+            const saved = leaderboard.getUsername();
+            if (!saved || saved.startsWith('匿名玩家_')) {
+                document.getElementById('usernameModal').classList.remove('hidden');
+                document.getElementById('usernameInput').focus();
+            }
+        }
+
+        function saveUsername() {
+            const input = document.getElementById('usernameInput');
+            const name = input.value.trim();
+            if (name) {
+                leaderboard.setUsername(name);
+                document.getElementById('usernameModal').classList.add('hidden');
+            }
+        }
+
+        function selectBook(bookKey) {
+            currentBook = bookKey;
+            
+            document.querySelectorAll('.book-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.style.boxShadow = 'none';
+            });
+            
+            const activeBtn = document.querySelector(`[data-book="${bookKey}"]`);
+            activeBtn.classList.add('active');
+            
+            if (!isPlaying) {
+                resetGame();
+            }
+        }
+
+        function generateWords() {
+            const book = vocabularyBooks[currentBook];
+            words = [];
+            const shuffled = [...book].sort(() => Math.random() - 0.5);
+            for (let i = 0; i < 20; i++) {
+                words.push(shuffled[i % shuffled.length]);
+            }
+        }
+
+        function renderTrack() {
+            const track = document.getElementById('textTrack');
+            track.innerHTML = '';
+            
+            words.forEach((wordObj, wordIdx) => {
+                const wordDiv = document.createElement('div');
+                wordDiv.className = 'word';
+                wordDiv.id = `word-${wordIdx}`;
+                
+                const trans = document.createElement('div');
+                trans.className = 'translation';
+                trans.textContent = wordObj.cn;
+                wordDiv.appendChild(trans);
+                
+                wordObj.en.split('').forEach((char, charIdx) => {
+                    const charSpan = document.createElement('span');
+                    charSpan.className = 'char pending text-4xl font-bold';
+                    charSpan.textContent = char;
+                    charSpan.id = `char-${wordIdx}-${charIdx}`;
+                    
+                    if (wordIdx === 0 && charIdx === 0) {
+                        charSpan.classList.add('cursor', 'text-cyan-400');
+                        charSpan.classList.remove('pending');
+                    }
+                    
+                    wordDiv.appendChild(charSpan);
+                });
+                
+                track.appendChild(wordDiv);
+            });
+            
+            updateProgress();
+        }
+
+        function scrollToCurrent() {
+            const currentWord = document.getElementById(`word-${currentWordIndex}`);
+            if (!currentWord) return;
+            
+            const track = document.getElementById('textTrack');
+            const container = track.parentElement;
+            const containerWidth = container.offsetWidth;
+            
+            const wordOffset = currentWord.offsetLeft;
+            const centerOffset = containerWidth / 2 - 150;
+            
+            track.style.transform = `translateX(${centerOffset - wordOffset}px)`;
+            
+            const transDiv = document.getElementById('currentTranslation');
+            if (currentWordIndex < words.length) {
+                transDiv.textContent = words[currentWordIndex].cn;
+                transDiv.style.opacity = '1';
+                transDiv.style.transform = 'translateY(0)';
+            }
+        }
+
+        function createParticle(x, y, color) {
+            for (let i = 0; i < 6; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = x + 'px';
+                p.style.top = y + 'px';
+                p.style.width = (4 + Math.random() * 4) + 'px';
+                p.style.height = p.style.width;
+                p.style.background = color;
+                p.style.setProperty('--tx', (Math.random() - 0.5) * 80 + 'px');
+                p.style.setProperty('--ty', (Math.random() - 0.5) * 80 + 'px');
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 800);
+            }
+        }
+
+        function handleInput(e) {
+            if (!isPlaying) {
+                if (e.code === 'Space') {
+                    startGame();
+                }
+                return;
+            }
+
+            const currentWord = words[currentWordIndex];
+            const wordEl = document.getElementById(`word-${currentWordIndex}`);
+
+            if (e.key === 'Backspace') {
+                if (currentCharIndex > 0) {
+                    currentCharIndex--;
+                    updateChar(currentWordIndex, currentCharIndex, 'pending');
+                    currentCombo = 0;
+                    updateCombo();
+                }
+                return;
+            }
+
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (currentCharIndex === currentWord.en.length) {
+                    wordEl.classList.add('completed');
+                    wordEl.classList.remove('current');
+                    playSound('coin');
+                    
+                    currentCombo++;
+                    if (currentCombo > maxCombo) maxCombo = currentCombo;
+                    updateCombo();
+                    
+                    currentWordIndex++;
+                    currentCharIndex = 0;
+                    
+                    if (currentWordIndex < words.length) {
+                        updateChar(currentWordIndex, 0, 'current');
+                        scrollToCurrent();
+                    } else {
+                        completeGame();
+                    }
+                } else {
+                    wordEl.classList.add('shake');
+                    setTimeout(() => wordEl.classList.remove('shake'), 200);
+                    playSound('error');
+                    currentCombo = 0;
+                    updateCombo();
+                }
+                return;
+            }
+
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                if (currentCharIndex >= currentWord.en.length) return;
+                
+                const expected = currentWord.en[currentCharIndex];
+                const actual = e.key;
+                const charEl = document.getElementById(`char-${currentWordIndex}-${currentCharIndex}`);
+                const rect = charEl.getBoundingClientRect();
+                
+                if (actual === expected) {
+                    playSound('key');
+                    updateChar(currentWordIndex, currentCharIndex, 'correct');
+                    createParticle(rect.left + rect.width/2, rect.top + rect.height/2, '#00ff88');
+                    currentCharIndex++;
+                    totalChars++;
+                    
+                    if (currentCharIndex === currentWord.en.length) {
+                        wordEl.classList.add('current');
+                        document.getElementById('currentTranslation').innerHTML = 
+                            `<span class="text-yellow-400">按空格继续 →</span>`;
+                    }
+                } else {
+                    playSound('error');
+                    errorCount++;
+                    charEl.classList.add('wrong');
+                    wordEl.classList.add('shake');
+                    setTimeout(() => wordEl.classList.remove('shake'), 200);
+                    createParticle(rect.left + rect.width/2, rect.top + rect.height/2, '#ff4444');
+                    currentCombo = 0;
+                    updateCombo();
+                }
+                
+                updateStats();
+            }
+        }
+
+        function updateChar(wordIdx, charIdx, status) {
+            const charEl = document.getElementById(`char-${wordIdx}-${charIdx}`);
+            if (!charEl) return;
+            
+            charEl.className = 'char text-4xl font-bold transition-all';
+            
+            switch(status) {
+                case 'correct':
+                    charEl.classList.add('correct');
+                    break;
+                case 'current':
+                    charEl.classList.add('cursor', 'text-cyan-400');
+                    break;
+                case 'pending':
+                    charEl.classList.add('pending');
+                    break;
+            }
+            
+            if (status === 'current' && charIdx > 0) {
+                const prev = document.getElementById(`char-${wordIdx}-${charIdx-1}`);
+                if (prev) prev.classList.remove('cursor');
+            }
+        }
+
+        function updateStats() {
+            const accuracy = totalChars === 0 ? 100 : Math.round(((totalChars - errorCount) / totalChars) * 100);
+            document.getElementById('accuracy').textContent = accuracy + '%';
+            
+            if (startTime) {
+                const minutes = (Date.now() - startTime) / 60000;
+                const wpm = Math.round((currentWordIndex / minutes)) || 0;
+                document.getElementById('wpm').textContent = wpm;
+            }
+            
+            updateProgress();
+        }
+
+        function updateCombo() {
+            const comboEl = document.getElementById('combo');
+            comboEl.textContent = currentCombo;
+            if (currentCombo > 5) {
+                comboEl.classList.add('text-orange-400');
+                comboEl.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    comboEl.style.transform = 'scale(1)';
+                }, 200);
+            } else {
+                comboEl.classList.remove('text-orange-400');
+            }
+        }
+
+        function updateProgress() {
+            const progress = (currentWordIndex / words.length) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            document.getElementById('progress-text').textContent = `${currentWordIndex}/${words.length}`;
+        }
+
+        function startGame() {
+            checkUsername();
+            initAudio();
+            isPlaying = true;
+            startTime = Date.now();
+            
+            if (musicEnabled) startMusic();
+            
+            const overlay = document.getElementById('startOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+            
+            document.getElementById('inputField').focus();
+            scrollToCurrent();
+            playSound('powerup');
+        }
+
+        function completeGame() {
+            isPlaying = false;
+            stopMusic();
+            playSound('victory');
+            
+            const minutes = (Date.now() - startTime) / 60000;
+            const wpm = Math.round((words.length / minutes));
+            const accuracy = Math.round(((totalChars - errorCount) / totalChars) * 100);
+            
+            let rank = 'C';
+            let message = '继续加油！';
+            if (wpm > 100 && accuracy > 95) { rank = 'SSS'; message = '神级操作！'; }
+            else if (wpm > 80 && accuracy > 90) { rank = 'S'; message = '完美通关！'; }
+            else if (wpm > 60 && accuracy > 85) { rank = 'A'; message = '非常出色！'; }
+            else if (wpm > 40 && accuracy > 80) { rank = 'B'; message = '表现不错！'; }
+            
+            finalScoreData = {
+                wpm: wpm,
+                accuracy: accuracy,
+                book: currentBook,
+                combo: maxCombo,
+                rank: rank
+            };
+            
+            document.getElementById('finalWPM').textContent = wpm;
+            document.getElementById('finalAcc').textContent = accuracy + '%';
+            document.getElementById('finalCombo').textContent = maxCombo;
+            document.getElementById('finalRank').textContent = rank;
+            document.getElementById('victoryMessage').textContent = message;
+            
+            const starsContainer = document.getElementById('starsContainer');
+            starsContainer.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    const star = document.createElement('div');
+                    star.className = 'star';
+                    star.textContent = '⭐';
+                    star.style.left = Math.random() * 100 + '%';
+                    star.style.top = Math.random() * 100 + '%';
+                    starsContainer.appendChild(star);
+                }, i * 100);
+            }
+            
+            document.getElementById('victoryModal').classList.remove('hidden');
+        }
+
+        async function submitAndNext() {
+            if (finalScoreData) {
+                await leaderboard.submitScore(finalScoreData);
+            }
+            closeVictory();
+        }
+
+        function closeVictory() {
+            document.getElementById('victoryModal').classList.add('hidden');
+            resetGame();
+        }
+
+        function showLeaderboardFromVictory() {
+            document.getElementById('victoryModal').classList.add('hidden');
+            showLeaderboard();
+        }
+
+        function resetGame() {
+            isPlaying = false;
+            stopMusic();
+            currentWordIndex = 0;
+            currentCharIndex = 0;
+            errorCount = 0;
+            totalChars = 0;
+            currentCombo = 0;
+            maxCombo = 0;
+            startTime = null;
+            finalScoreData = null;
+            
+            document.getElementById('wpm').textContent = '0';
+            document.getElementById('accuracy').textContent = '100%';
+            document.getElementById('combo').textContent = '0';
+            document.getElementById('currentTranslation').textContent = '准备开始...';
+            document.getElementById('currentTranslation').style.opacity = '0';
+            
+            const overlay = document.getElementById('startOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.opacity = '1', 10);
+            
+            generateWords();
+            renderTrack();
+        }
+
+        function toggleMusic() {
+            musicEnabled = !musicEnabled;
+            const btn = document.getElementById('musicBtn');
+            const icon = document.getElementById('musicIcon');
+            
+            if (musicEnabled) {
+                icon.textContent = '🎵';
+                btn.classList.remove('opacity-50');
+                if (isPlaying) startMusic();
+            } else {
+                icon.textContent = '🔇';
+                btn.classList.add('opacity-50');
+                stopMusic();
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('soundBtn');
+            const icon = document.getElementById('soundIcon');
+            
+            if (soundEnabled) {
+                icon.textContent = '🔊';
+                btn.classList.remove('opacity-50');
+            } else {
+                icon.textContent = '🔇';
+                btn.classList.add('opacity-50');
+            }
+        }
+
+        // ==================== 排行榜功能 ====================
+        let currentFilter = 'all';
+
+        function showLeaderboard() {
+            document.getElementById('leaderboardModal').classList.remove('hidden');
+            loadLeaderboard();
+            loadPersonalBest();
+        }
+
+        function closeLeaderboard() {
+            document.getElementById('leaderboardModal').classList.add('hidden');
+        }
+
+        function filterLeaderboard(book) {
+            currentFilter = book;
+            
+            document.querySelectorAll('.leaderboard-filter').forEach(btn => {
+                btn.classList.remove('active', 'bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500');
+                btn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-600');
+            });
+            
+            const activeBtn = document.querySelector(`[data-filter="${book}"]`);
+            activeBtn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-600');
+            activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500');
+            
+            loadLeaderboard();
+        }
+
+        async function loadLeaderboard() {
+            const tbody = document.getElementById('leaderboardBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">加载中...</td></tr>';
+            
+            const data = await leaderboard.getLeaderboard(currentFilter, 20);
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">暂无数据</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.map((record, index) => {
+                const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'text-gray-400';
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+                const bookColors = {
+                    cet4: 'text-blue-400',
+                    cet6: 'text-purple-400',
+                    ielts: 'text-red-400',
+                    toefl: 'text-orange-400',
+                    gre: 'text-green-400',
+                    programming: 'text-cyan-400'
+                };
+                
+                return `
+                    <tr class="leaderboard-item border-b border-gray-800">
+                        <td class="py-3 pl-2 font-bold ${rankClass}">${medal}</td>
+                        <td class="py-3 font-semibold text-white">${record.username}</td>
+                        <td class="py-3 ${bookColors[record.book] || 'text-gray-400'}">${record.book.toUpperCase()}</td>
+                        <td class="py-3 text-right font-mono text-cyan-400">${record.wpm}</td>
+                        <td class="py-3 text-right font-mono text-purple-400">${record.accuracy}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadPersonalBest() {
+            const username = leaderboard.getUsername();
+            const div = document.getElementById('personalBest');
+            
+            if (!username) {
+                div.textContent = '请先设置用户名';
+                return;
+            }
+            
+            const record = await leaderboard.getPersonalBest(username, currentFilter);
+            if (record) {
+                div.innerHTML = `
+                    <span class="text-cyan-400 font-bold">${record.wpm} WPM</span>
+                    <span class="text-gray-500 mx-2">|</span>
+                    <span class="text-purple-400">${record.accuracy}% 准确率</span>
+                    <span class="text-gray-500 mx-2">|</span>
+                    <span class="text-yellow-400">${record.book.toUpperCase()}</span>
+                `;
+            } else {
+                div.textContent = '暂无记录，快来挑战吧！';
+            }
+        }
+
+        // 事件监听
+        document.addEventListener('keydown', (e) => {
+            if (e.target.id !== 'inputField' && e.target.id !== 'usernameInput') {
+                document.getElementById('inputField').focus();
+            }
+            handleInput(e);
+        });
+
+        document.getElementById('startOverlay').addEventListener('click', startGame);
+
+        document.addEventListener('click', (e) => {
+            if (isPlaying && !e.target.closest('button') && !e.target.closest('#leaderboardModal') && !e.target.closest('#usernameModal') && !e.target.closest('#victoryModal')) {
+                document.getElementById('inputField').focus();
+            }
+        });
+
+        // 初始化
+        generateWords();
+        renderTrack();
+    </script>
 </body>
 </html>
