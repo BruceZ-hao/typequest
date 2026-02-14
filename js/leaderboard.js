@@ -1,11 +1,27 @@
 // js/leaderboard.js
 class Leaderboard {
     constructor() {
-        this.db = firebase.database();
+        this.db = null;
         this.currentUser = null;
         this.leaderboardData = [];
+        this.useFirebase = false;
+        
+        // 尝试初始化Firebase
+        this.initFirebase();
         // 初始化用户名
         this.initUsername();
+    }
+
+    initFirebase() {
+        try {
+            if (typeof database !== 'undefined' && database !== null) {
+                this.db = database;
+                this.useFirebase = true;
+                console.log('✅ Leaderboard 连接 Firebase 成功');
+            }
+        } catch (error) {
+            console.log('⚠️ Leaderboard 使用本地模式');
+        }
     }
 
     // 初始化用户名
@@ -40,106 +56,188 @@ class Leaderboard {
             book: scoreData.book,
             combo: scoreData.combo,
             rank: scoreData.rank,
-            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            difficulty: scoreData.difficulty,
+            timestamp: Date.now(),
             date: new Date().toLocaleDateString()
         };
 
-        try {
-            // 写入全局排行榜
-            await this.db.ref('leaderboard').push(record);
-            
-            // 写入个人最佳记录
-            const personalBestRef = this.db.ref(`personalBest/${username}/${scoreData.book}`);
-            const snapshot = await personalBestRef.once('value');
-            const currentBest = snapshot.val();
-            
-            if (!currentBest || scoreData.wpm > currentBest.wpm) {
-                await personalBestRef.set(record);
+        // 保存到本地（始终保存）
+        this.saveToLocal(record);
+
+        // 尝试保存到Firebase
+        if (this.useFirebase && this.db) {
+            try {
+                // 写入全局排行榜
+                await this.db.ref('leaderboard').push(record);
+                
+                // 写入个人最佳记录
+                const personalBestRef = this.db.ref(`personalBest/${username}/${scoreData.book}`);
+                const snapshot = await personalBestRef.once('value');
+                const currentBest = snapshot.val();
+                
+                if (!currentBest || scoreData.wpm > currentBest.wpm) {
+                    await personalBestRef.set(record);
+                }
+                
+                console.log('✅ 分数已提交到全球排行榜');
+                return true;
+            } catch (error) {
+                console.log('⚠️ 提交到全球排行榜失败:', error);
             }
-            
-            return true;
-        } catch (error) {
-            console.error('提交分数失败:', error);
-            return false;
         }
+        
+        return false;
+    }
+
+    // 保存到本地
+    saveToLocal(record) {
+        const localRecords = JSON.parse(localStorage.getItem('typequest_leaderboard') || '[]');
+        localRecords.push(record);
+        
+        // 只保留最佳记录
+        const bestRecords = {};
+        localRecords.forEach(r => {
+            const key = `${r.username}_${r.book}`;
+            if (!bestRecords[key] || r.wpm > bestRecords[key].wpm) {
+                bestRecords[key] = r;
+            }
+        });
+        
+        localStorage.setItem('typequest_leaderboard', JSON.stringify(Object.values(bestRecords)));
     }
 
     // 获取排行榜数据
     async getLeaderboard(book = 'all', limit = 20) {
-        try {
-            let query = this.db.ref('leaderboard');
-            const snapshot = await query.once('value');
-            const data = [];
-            
-            snapshot.forEach(child => {
-                const record = child.val();
-                data.push(record);
-            });
-            
-            // 按WPM降序排序
-            data.sort((a, b) => b.wpm - a.wpm);
-            
-            // 按词书筛选
-            if (book !== 'all') {
-                const filtered = data.filter(r => r.book === book);
-                return filtered.slice(0, limit);
+        // 优先从Firebase获取
+        if (this.useFirebase && this.db) {
+            try {
+                let query = this.db.ref('leaderboard');
+                const snapshot = await query.once('value');
+                const data = [];
+                
+                snapshot.forEach(child => {
+                    const record = child.val();
+                    data.push(record);
+                });
+                
+                // 按WPM降序排序
+                data.sort((a, b) => b.wpm - a.wpm);
+                
+                // 按词书筛选
+                if (book !== 'all') {
+                    const filtered = data.filter(r => r.book === book);
+                    return filtered.slice(0, limit);
+                }
+                
+                return data.slice(0, limit);
+            } catch (error) {
+                console.log('⚠️ 从Firebase获取排行榜失败，使用本地数据');
             }
-            
-            return data.slice(0, limit);
-        } catch (error) {
-            console.error('获取排行榜失败:', error);
-            return [];
         }
+        
+        // 本地回退
+        return this.getLocalLeaderboard(book, limit);
+    }
+
+    // 获取本地排行榜
+    getLocalLeaderboard(book = 'all', limit = 20) {
+        const localRecords = JSON.parse(localStorage.getItem('typequest_leaderboard') || '[]');
+        
+        // 按WPM降序排序
+        localRecords.sort((a, b) => b.wpm - a.wpm);
+        
+        // 按词书筛选
+        if (book !== 'all') {
+            const filtered = localRecords.filter(r => r.book === book);
+            return filtered.slice(0, limit);
+        }
+        
+        return localRecords.slice(0, limit);
     }
 
     // 获取个人最佳记录
     async getPersonalBest(username, book) {
-        try {
-            // 全部词书
-            if (book === 'all') {
-                const snapshot = await this.db.ref(`personalBest/${username}`).once('value');
-                const records = snapshot.val();
-                if (!records) return null;
+        // 优先从Firebase获取
+        if (this.useFirebase && this.db) {
+            try {
+                // 全部词书
+                if (book === 'all') {
+                    const snapshot = await this.db.ref(`personalBest/${username}`).once('value');
+                    const records = snapshot.val();
+                    if (!records) return null;
+                    
+                    // 找出最高WPM的记录
+                    const recordList = Object.values(records);
+                    recordList.sort((a, b) => b.wpm - a.wpm);
+                    return recordList[0];
+                }
                 
-                // 找出最高WPM的记录
-                const recordList = Object.values(records);
-                recordList.sort((a, b) => b.wpm - a.wpm);
-                return recordList[0];
+                // 指定词书
+                const snapshot = await this.db.ref(`personalBest/${username}/${book}`).once('value');
+                return snapshot.val();
+            } catch (error) {
+                console.log('⚠️ 从Firebase获取个人记录失败，使用本地数据');
             }
-            
-            // 指定词书
-            const snapshot = await this.db.ref(`personalBest/${username}/${book}`).once('value');
-            return snapshot.val();
-        } catch (error) {
-            console.error('获取个人记录失败:', error);
-            return null;
         }
+        
+        // 本地回退
+        return this.getLocalPersonalBest(username, book);
+    }
+
+    // 获取本地个人最佳
+    getLocalPersonalBest(username, book) {
+        const localRecords = JSON.parse(localStorage.getItem('typequest_leaderboard') || '[]');
+        const userRecords = localRecords.filter(r => r.username === username);
+        
+        if (userRecords.length === 0) return null;
+        
+        if (book !== 'all') {
+            const filtered = userRecords.filter(r => r.book === book);
+            if (filtered.length === 0) return null;
+            filtered.sort((a, b) => b.wpm - a.wpm);
+            return filtered[0];
+        }
+        
+        userRecords.sort((a, b) => b.wpm - a.wpm);
+        return userRecords[0];
     }
 
     // 实时监听排行榜更新
     onLeaderboardUpdate(callback, book = 'all') {
-        this.db.ref('leaderboard').on('value', (snapshot) => {
-            const data = [];
-            snapshot.forEach(child => {
-                data.push(child.val());
-            });
-            
-            // 排序
-            data.sort((a, b) => b.wpm - a.wpm);
-            
-            // 筛选
-            if (book !== 'all') {
-                const filtered = data.filter(r => r.book === book);
-                callback(filtered.slice(0, 20));
-            } else {
-                callback(data.slice(0, 20));
+        if (this.useFirebase && this.db) {
+            try {
+                this.db.ref('leaderboard').on('value', (snapshot) => {
+                    const data = [];
+                    snapshot.forEach(child => {
+                        data.push(child.val());
+                    });
+                    
+                    // 排序
+                    data.sort((a, b) => b.wpm - a.wpm);
+                    
+                    // 筛选
+                    if (book !== 'all') {
+                        const filtered = data.filter(r => r.book === book);
+                        callback(filtered.slice(0, 20));
+                    } else {
+                        callback(data.slice(0, 20));
+                    }
+                });
+            } catch (error) {
+                console.log('⚠️ Firebase实时监听失败');
             }
-        });
+        }
     }
 
     // 取消监听
     offLeaderboardUpdate() {
-        this.db.ref('leaderboard').off();
+        if (this.useFirebase && this.db) {
+            try {
+                this.db.ref('leaderboard').off();
+            } catch (error) {
+                // 静默失败
+            }
+        }
     }
 }
 
