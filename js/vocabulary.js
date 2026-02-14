@@ -1,194 +1,90 @@
 const vocabularyBooks = {
-    cet4: [
-        { en: "abandon", cn: "放弃", difficulty: 1 },
-        { en: "ability", cn: "能力", difficulty: 1 },
-        { en: "absence", cn: "缺席", difficulty: 1 },
-        { en: "absolute", cn: "绝对的", difficulty: 2 },
-        { en: "absorb", cn: "吸收", difficulty: 2 },
-        { en: "abstract", cn: "抽象的", difficulty: 2 },
-        { en: "abundant", cn: "丰富的", difficulty: 2 },
-        { en: "academic", cn: "学术的", difficulty: 2 },
-        { en: "academy", cn: "学院", difficulty: 2 },
-        { en: "accelerate", cn: "加速", difficulty: 3 },
-        { en: "accent", cn: "口音", difficulty: 2 },
-        { en: "acceptance", cn: "接受", difficulty: 2 },
-        { en: "access", cn: "进入", difficulty: 2 },
-        { en: "accident", cn: "事故", difficulty: 1 },
-        { en: "accompany", cn: "陪伴", difficulty: 2 },
-        { en: "accomplish", cn: "完成", difficulty: 2 },
-        { en: "accord", cn: "一致", difficulty: 3 },
-        { en: "account", cn: "账户", difficulty: 1 },
-        { en: "accumulate", cn: "积累", difficulty: 3 },
-        { en: "accuracy", cn: "准确", difficulty: 3 },
-        { en: "accurate", cn: "精确的", difficulty: 2 },
-        { en: "accuse", cn: "控告", difficulty: 3 },
-        { en: "accustomed", cn: "习惯的", difficulty: 3 },
-        { en: "achievement", cn: "成就", difficulty: 2 },
-        { en: "acid", cn: "酸", difficulty: 2 },
-        { en: "acquaintance", cn: "熟人", difficulty: 3 },
-        { en: "acquire", cn: "获得", difficulty: 2 },
-        { en: "acre", cn: "英亩", difficulty: 3 },
-        { en: "adapt", cn: "适应", difficulty: 2 },
-        { en: "adequate", cn: "足够的", difficulty: 2 }
-    ],
-    cet6: [
-        { en: "abbreviate", cn: "缩写", difficulty: 3 },
-        { en: "abnormal", cn: "异常的", difficulty: 2 },
-        { en: "abolish", cn: "废除", difficulty: 3 },
-        { en: "abrupt", cn: "突然的", difficulty: 3 },
-        { en: "absurd", cn: "荒谬的", difficulty: 3 },
-        { en: "abundance", cn: "丰富", difficulty: 3 },
-        { en: "accessory", cn: "附件", difficulty: 3 },
-        { en: "accommodate", cn: "容纳", difficulty: 3 },
-        { en: "acquaint", cn: "使熟悉", difficulty: 4 },
-        { en: "activate", cn: "激活", difficulty: 3 },
-        { en: "addict", cn: "上瘾", difficulty: 3 },
-        { en: "adequacy", cn: "足够", difficulty: 4 },
-        { en: "adhere", cn: "坚持", difficulty: 4 },
-        { en: "adjacent", cn: "邻近的", difficulty: 4 },
-        { en: "advocate", cn: "提倡", difficulty: 3 },
-        { en: "aesthetic", cn: "美学的", difficulty: 4 },
-        { en: "affiliate", cn: "附属", difficulty: 4 },
-        { en: "affirm", cn: "肯定", difficulty: 4 },
-        { en: "afflict", cn: "折磨", difficulty: 4 },
-        { en: "agenda", cn: "议程", difficulty: 3 },
-        { en: "aggravate", cn: "加重", difficulty: 4 },
-        { en: "alleviate", cn: "减轻", difficulty: 4 },
-        { en: "ambiguous", cn: "模糊的", difficulty: 4 },
-        { en: "ambitious", cn: "有野心的", difficulty: 3 },
-        { en: "amend", cn: "修改", difficulty: 4 },
-        { en: "analogy", cn: "类比", difficulty: 4 },
-        { en: "analytic", cn: "分析的", difficulty: 4 },
-        { en: "ancestor", cn: "祖先", difficulty: 2 },
-        { en: "anniversary", cn: "周年", difficulty: 3 },
-        { en: "anonymous", cn: "匿名的", difficulty: 4 }
-    ],
-    ielts: [
-        { en: "abundant", cn: "丰富的", difficulty: 2 },
-        { en: "accelerate", cn: "加速", difficulty: 2 },
-        { en: "accessible", cn: "可进入的", difficulty: 3 },
-        { en: "accommodate", cn: "容纳", difficulty: 3 },
-        { en: "accomplishment", cn: "成就", difficulty: 3 },
-        { en: "accumulate", cn: "积累", difficulty: 2 },
-        { en: "accurate", cn: "精确的", difficulty: 2 },
-        { en: "achieve", cn: "达到", difficulty: 1 },
-        { en: "acknowledge", cn: "承认", difficulty: 3 },
-        { en: "acquaintance", cn: "熟人", difficulty: 3 },
-        { en: "acquire", cn: "获得", difficulty: 2 },
-        { en: "adequate", cn: "足够的", difficulty: 2 },
-        { en: "adjacent", cn: "邻近的", difficulty: 4 },
-        { en: "adjust", cn: "调整", difficulty: 2 },
-        { en: "administer", cn: "管理", difficulty: 4 },
-        { en: "adolescent", cn: "青少年", difficulty: 3 },
-        { en: "advocate", cn: "提倡", difficulty: 3 },
-        { en: "aesthetic", cn: "美学的", difficulty: 4 },
-        { en: "affluent", cn: "富裕的", difficulty: 4 },
-        { en: "aggregate", cn: "合计", difficulty: 4 },
-        { en: "aggressive", cn: "侵略的", difficulty: 3 },
-        { en: "allocate", cn: "分配", difficulty: 4 },
-        { en: "alter", cn: "改变", difficulty: 2 },
-        { en: "alternative", cn: "替代的", difficulty: 2 },
-        { en: "ambiguous", cn: "模糊的", difficulty: 4 },
-        { en: "ambitious", cn: "有野心的", difficulty: 3 },
-        { en: "analogy", cn: "类比", difficulty: 4 },
-        { en: "analyze", cn: "分析", difficulty: 2 },
-        { en: "ancestor", cn: "祖先", difficulty: 2 },
-        { en: "anniversary", cn: "周年", difficulty: 3 }
-    ],
-    toefl: [
-        { en: "abundant", cn: "丰富的", difficulty: 2 },
-        { en: "accelerate", cn: "加速", difficulty: 2 },
-        { en: "accessible", cn: "可进入的", difficulty: 3 },
-        { en: "accommodate", cn: "容纳", difficulty: 3 },
-        { en: "accompany", cn: "陪伴", difficulty: 2 },
-        { en: "accomplish", cn: "完成", difficulty: 2 },
-        { en: "accord", cn: "一致", difficulty: 3 },
-        { en: "account", cn: "账户", difficulty: 1 },
-        { en: "accumulate", cn: "积累", difficulty: 2 },
-        { en: "accurate", cn: "精确的", difficulty: 2 },
-        { en: "achieve", cn: "达到", difficulty: 1 },
-        { en: "acknowledge", cn: "承认", difficulty: 3 },
-        { en: "acquaint", cn: "使熟悉", difficulty: 4 },
-        { en: "acquire", cn: "获得", difficulty: 2 },
-        { en: "adequate", cn: "足够的", difficulty: 2 },
-        { en: "adjacent", cn: "邻近的", difficulty: 4 },
-        { en: "adjust", cn: "调整", difficulty: 2 },
-        { en: "administer", cn: "管理", difficulty: 4 },
-        { en: "adolescent", cn: "青少年", difficulty: 3 },
-        { en: "advocate", cn: "提倡", difficulty: 3 },
-        { en: "aesthetic", cn: "美学的", difficulty: 4 },
-        { en: "affluent", cn: "富裕的", difficulty: 4 },
-        { en: "aggregate", cn: "合计", difficulty: 4 },
-        { en: "aggressive", cn: "侵略的", difficulty: 3 },
-        { en: "allocate", cn: "分配", difficulty: 4 },
-        { en: "alter", cn: "改变", difficulty: 2 },
-        { en: "alternative", cn: "替代的", difficulty: 2 },
-        { en: "ambiguous", cn: "模糊的", difficulty: 4 },
-        { en: "ambitious", cn: "有野心的", difficulty: 3 },
-        { en: "analogy", cn: "类比", difficulty: 4 }
-    ],
-    gre: [
-        { en: "abate", cn: "减少", difficulty: 5 },
-        { en: "aberrant", cn: "异常的", difficulty: 5 },
-        { en: "abeyance", cn: "中止", difficulty: 5 },
-        { en: "abhor", cn: "憎恶", difficulty: 5 },
-        { en: "abject", cn: "凄惨的", difficulty: 5 },
-        { en: "abjure", cn: "发誓放弃", difficulty: 5 },
-        { en: "ablution", cn: "沐浴", difficulty: 5 },
-        { en: "abnegate", cn: "否认", difficulty: 5 },
-        { en: "abolitionist", cn: "废奴主义者", difficulty: 5 },
-        { en: "abominate", cn: "痛恨", difficulty: 5 },
-        { en: "aboriginal", cn: "土著的", difficulty: 5 },
-        { en: "abortive", cn: "失败的", difficulty: 5 },
-        { en: "abrade", cn: "磨损", difficulty: 5 },
-        { en: "abridge", cn: "删减", difficulty: 5 },
-        { en: "abrogate", cn: "废除", difficulty: 5 },
-        { en: "abscond", cn: "潜逃", difficulty: 5 },
-        { en: "absolve", cn: "赦免", difficulty: 5 },
-        { en: "abstain", cn: "戒除", difficulty: 5 },
-        { en: "abstemious", cn: "节制的", difficulty: 5 },
-        { en: "abstinent", cn: "禁欲的", difficulty: 5 },
-        { en: "abstracted", cn: "心不在焉的", difficulty: 5 },
-        { en: "abstruse", cn: "深奥的", difficulty: 5 },
-        { en: "absurdity", cn: "荒谬", difficulty: 4 },
-        { en: "abundant", cn: "丰富的", difficulty: 2 },
-        { en: "abuse", cn: "滥用", difficulty: 3 },
-        { en: "abut", cn: "邻接", difficulty: 5 },
-        { en: "abysmal", cn: "极坏的", difficulty: 5 },
-        { en: "academic", cn: "学术的", difficulty: 2 },
-        { en: "accede", cn: "同意", difficulty: 5 },
-        { en: "accelerate", cn: "加速", difficulty: 2 }
-    ],
-    programming: [
-        { en: "algorithm", cn: "算法", difficulty: 3 },
-        { en: "function", cn: "函数", difficulty: 1 },
-        { en: "variable", cn: "变量", difficulty: 1 },
-        { en: "constant", cn: "常量", difficulty: 1 },
-        { en: "database", cn: "数据库", difficulty: 2 },
-        { en: "interface", cn: "接口", difficulty: 2 },
-        { en: "framework", cn: "框架", difficulty: 2 },
-        { en: "component", cn: "组件", difficulty: 2 },
-        { en: "middleware", cn: "中间件", difficulty: 3 },
-        { en: "frontend", cn: "前端", difficulty: 2 },
-        { en: "backend", cn: "后端", difficulty: 2 },
-        { en: "server", cn: "服务器", difficulty: 2 },
-        { en: "client", cn: "客户端", difficulty: 2 },
-        { en: "network", cn: "网络", difficulty: 2 },
-        { en: "protocol", cn: "协议", difficulty: 3 },
-        { en: "packet", cn: "数据包", difficulty: 3 },
-        { en: "router", cn: "路由器", difficulty: 2 },
-        { en: "encryption", cn: "加密", difficulty: 3 },
-        { en: "decryption", cn: "解密", difficulty: 3 },
-        { en: "authentication", cn: "认证", difficulty: 3 },
-        { en: "authorization", cn: "授权", difficulty: 3 },
-        { en: "token", cn: "令牌", difficulty: 2 },
-        { en: "session", cn: "会话", difficulty: 2 },
-        { en: "cache", cn: "缓存", difficulty: 2 },
-        { en: "memory", cn: "内存", difficulty: 2 },
-        { en: "storage", cn: "存储", difficulty: 2 },
-        { en: "compile", cn: "编译", difficulty: 3 },
-        { en: "runtime", cn: "运行时", difficulty: 3 },
-        { en: "syntax", cn: "语法", difficulty: 2 },
-        { en: "debug", cn: "调试", difficulty: 2 }
-    ]
+  cet4: [
+    { en: "abundant", cn: "丰富的" },
+    { en: "accurate", cn: "准确的" },
+    { en: "active", cn: "积极的" },
+    { en: "adapt", cn: "适应" },
+    { en: "affect", cn: "影响" },
+    { en: "approach", cn: "方法" },
+    { en: "attitude", cn: "态度" },
+    { en: "available", cn: "可获得的" },
+    { en: "avoid", cn: "避免" },
+    { en: "benefit", cn: "受益" }
+  ]
 };
+
+let leaderboard;
+let words = [];
+let currentWordIndex = 0;
+let currentCharIndex = 0;
+let isPlaying = false;
+let startTime = null;
+
+function init() {
+  leaderboard = new Leaderboard();
+  renderUI();
+  bindEvents();
+  resetGame();
+}
+
+function renderUI() {
+  document.getElementById('app').innerHTML = `
+<div class="min-h-screen p-4 flex flex-col items-center">
+  <h1 class="text-4xl font-bold mb-4">TypeQuest</h1>
+  <div class="w-full max-w-2xl mb-4">
+    <div class="text-sm mb-1">当前单词</div>
+    <div id="word-display" class="text-2xl h-12"></div>
+  </div>
+  <input id="input" class="px-4 py-2 rounded bg-gray-800 border border-gray-600 w-full max-w-xl" placeholder="开始输入单词">
+  <div class="mt-6">
+    <button id="start" class="px-6 py-2 bg-cyan-600 rounded">开始游戏</button>
+  </div>
+</div>
+  `;
+}
+
+function bindEvents() {
+  document.getElementById('start').onclick = startGame;
+  document.getElementById('input').addEventListener('input', onType);
+}
+
+function resetGame() {
+  isPlaying = false;
+  currentWordIndex = 0;
+  currentCharIndex = 0;
+  words = [...vocabularyBooks.cet4].sort(() => Math.random() - 0.5).slice(0, 10);
+  showCurrentWord();
+}
+
+function startGame() {
+  isPlaying = true;
+  startTime = Date.now();
+  document.getElementById('input').value = '';
+  document.getElementById('input').focus();
+}
+
+function showCurrentWord() {
+  const el = document.getElementById('word-display');
+  if (currentWordIndex >= words.length) {
+    el.innerText = '✅ 完成！';
+    isPlaying = false;
+    return;
+  }
+  el.innerText = words[currentWordIndex].en;
+}
+
+function onType(e) {
+  if (!isPlaying) return;
+
+  const val = e.target.value.trim();
+  const current = words[currentWordIndex].en;
+
+  if (val === current) {
+    currentWordIndex++;
+    currentCharIndex = 0;
+    e.target.value = '';
+    showCurrentWord();
+  }
+}
+
+window.addEventListener('DOMContentLoaded', init);
