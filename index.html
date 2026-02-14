@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TypeQuest - 单词冒险</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase Compat CDN（必须用兼容版本，不可修改） -->
+    <!-- Firebase Compat CDN（可选，无网络时自动降级） -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
@@ -229,6 +229,52 @@
             from { opacity: 0; transform: scale(0.9); }
             to { opacity: 1; transform: scale(1); }
         }
+
+        .keyboard-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 12px;
+            padding: 12px 24px;
+            z-index: 40;
+            backdrop-filter: blur(10px);
+        }
+
+        .key {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            height: 28px;
+            background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #d1d5db;
+            box-shadow: 0 2px 0 #111827;
+            margin: 0 2px;
+        }
+
+        .difficulty-btn {
+            transition: all 0.2s;
+        }
+
+        .difficulty-btn.active {
+            transform: scale(1.05);
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+            border: 1px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .glow-text {
+            text-shadow: 0 0 20px currentColor;
+        }
     </style>
 </head>
 <body class="min-h-screen text-gray-100 cyber-grid relative">
@@ -243,13 +289,32 @@
         <!-- 标题 -->
         <header class="text-center mb-6">
             <h1 class="text-5xl font-black mb-2 tracking-tighter">
-                <span class="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent" style="filter: drop-shadow(0 0 10px rgba(0,217,255,0.5));">
+                <span class="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent glow-text">
                     TYPE
                 </span>
                 <span class="text-white">QUEST</span>
             </h1>
             <p class="text-gray-400 text-sm tracking-widest uppercase">单词冒险 · 全球排行榜 · 词书挑战</p>
         </header>
+
+        <!-- 难度选择 -->
+        <div class="mb-4">
+            <div class="text-center text-gray-400 text-xs uppercase tracking-wider mb-2">难度选择</div>
+            <div class="flex justify-center gap-2">
+                <button onclick="setDifficulty('easy')" class="difficulty-btn px-4 py-2 rounded-full bg-green-500/20 text-green-400 border border-green-500/50 text-sm active" data-difficulty="easy">
+                    🌱 简单 (10词)
+                </button>
+                <button onclick="setDifficulty('normal')" class="difficulty-btn px-4 py-2 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 text-sm" data-difficulty="normal">
+                    🔥 普通 (20词)
+                </button>
+                <button onclick="setDifficulty('hard')" class="difficulty-btn px-4 py-2 rounded-full bg-red-500/20 text-red-400 border border-red-500/50 text-sm" data-difficulty="hard">
+                    💀 困难 (30词)
+                </button>
+                <button onclick="setDifficulty('daily')" class="difficulty-btn px-4 py-2 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/50 text-sm" data-difficulty="daily">
+                    📅 每日挑战
+                </button>
+            </div>
+        </div>
 
         <!-- 词书选择 -->
         <div class="mb-6">
@@ -273,30 +338,40 @@
                 <button onclick="selectBook('programming')" class="book-btn bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30" data-book="programming" style="color: #22d3ee;">
                     💻 编程术语
                 </button>
+                <button onclick="selectBook('business')" class="book-btn bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" data-book="business" style="color: #f59e0b;">
+                    💼 商务英语
+                </button>
+                <button onclick="selectBook('academic')" class="book-btn bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" data-book="academic" style="color: #10b981;">
+                    🎓 学术英语
+                </button>
             </div>
         </div>
 
         <!-- 统计面板 -->
         <div class="flex justify-center gap-4 mb-4 text-center flex-wrap">
-            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
+            <div class="stat-card rounded-xl px-4 py-2">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">WPM</div>
                 <div id="wpm" class="text-2xl font-bold text-cyan-400 font-mono">0</div>
             </div>
-            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
+            <div class="stat-card rounded-xl px-4 py-2">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">准确率</div>
                 <div id="accuracy" class="text-2xl font-bold text-purple-400 font-mono">100%</div>
             </div>
-            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
+            <div class="stat-card rounded-xl px-4 py-2">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">进度</div>
                 <div id="progress-text" class="text-2xl font-bold text-green-400 font-mono">0/0</div>
             </div>
-            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800">
+            <div class="stat-card rounded-xl px-4 py-2">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">连击</div>
                 <div id="combo" class="text-2xl font-bold text-yellow-400 font-mono">0</div>
             </div>
-            <div class="bg-gray-900/50 rounded-xl px-4 py-2 border border-gray-800 cursor-pointer hover:border-cyan-500 transition-all" onclick="showLeaderboard()">
+            <div class="stat-card rounded-xl px-4 py-2 cursor-pointer hover:border-cyan-500 transition-all" onclick="showLeaderboard()">
                 <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">排行榜</div>
                 <div class="text-2xl">🏆</div>
+            </div>
+            <div class="stat-card rounded-xl px-4 py-2 cursor-pointer hover:border-pink-500 transition-all" onclick="showHistory()">
+                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">历史</div>
+                <div class="text-2xl">📊</div>
             </div>
         </div>
 
@@ -312,10 +387,11 @@
                 <div class="text-6xl mb-3 animate-bounce">🎮</div>
                 <h2 class="text-2xl font-bold text-white mb-2">点击开始冒险</h2>
                 <p class="text-gray-400 text-sm">按空格键或点击此处开始</p>
-                <div class="mt-4 flex gap-2 text-xs text-gray-500">
+                <div class="mt-4 flex gap-2 text-xs text-gray-500 flex-wrap justify-center">
                     <span class="bg-gray-800 px-3 py-1 rounded-full">🎵 背景音乐</span>
                     <span class="bg-gray-800 px-3 py-1 rounded-full">🔊 8-bit音效</span>
                     <span class="bg-gray-800 px-3 py-1 rounded-full">🏆 全球排行</span>
+                    <span class="bg-gray-800 px-3 py-1 rounded-full">📊 本地记录</span>
                 </div>
             </div>
 
@@ -355,6 +431,35 @@
                 <span>🏆</span>
                 <span>查看排行</span>
             </button>
+
+            <button onclick="showHistory()" class="px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-pink-500 hover:text-pink-400 transition-all flex items-center gap-2">
+                <span>📊</span>
+                <span>历史记录</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 键盘快捷键提示 -->
+    <div class="keyboard-hint hidden md:flex items-center gap-4 text-gray-400 text-sm">
+        <div class="flex items-center gap-1">
+            <span class="key">空格</span>
+            <span>开始/下一词</span>
+        </div>
+        <div class="flex items-center gap-1">
+            <span class="key">R</span>
+            <span>重新开始</span>
+        </div>
+        <div class="flex items-center gap-1">
+            <span class="key">M</span>
+            <span>音乐开关</span>
+        </div>
+        <div class="flex items-center gap-1">
+            <span class="key">S</span>
+            <span>音效开关</span>
+        </div>
+        <div class="flex items-center gap-1">
+            <span class="key">L</span>
+            <span>排行榜</span>
         </div>
     </div>
 
@@ -363,9 +468,19 @@
         <div class="bg-gray-900 border-2 border-cyan-500 rounded-3xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col modal-enter">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-                    🏆 全球排行榜
+                    🏆 排行榜
                 </h2>
                 <button onclick="closeLeaderboard()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <!-- 排行榜类型切换 -->
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchLeaderboardType('global')" class="lb-type-btn px-4 py-2 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500 text-sm active" data-type="global">
+                    🌐 全球排行
+                </button>
+                <button onclick="switchLeaderboardType('local')" class="lb-type-btn px-4 py-2 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm" data-type="local">
+                    💾 本地记录
+                </button>
             </div>
 
             <!-- 筛选器 -->
@@ -375,7 +490,7 @@
                 <button onclick="filterLeaderboard('cet6')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-purple-500 hover:text-purple-400" data-filter="cet6">六级</button>
                 <button onclick="filterLeaderboard('ielts')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-red-500 hover:text-red-400" data-filter="ielts">雅思</button>
                 <button onclick="filterLeaderboard('toefl')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-orange-500 hover:text-orange-400" data-filter="toefl">托福</button>
-                <button onclick="filterLeaderboard('gre')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-green-500 hover:text-green-400" data-filter="gre">GRE</button>
+                <button onclick="filterLeaderboard('programming')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-cyan-500 hover:text-cyan-400" data-filter="programming">编程</button>
             </div>
 
             <!-- 排行榜列表 -->
@@ -388,11 +503,12 @@
                             <th class="pb-3">词书</th>
                             <th class="pb-3 text-right">WPM</th>
                             <th class="pb-3 text-right">准确率</th>
+                            <th class="pb-3 text-right">日期</th>
                         </tr>
                     </thead>
                     <tbody id="leaderboardBody" class="text-sm">
                         <tr>
-                            <td colspan="5" class="text-center py-8 text-gray-500">加载中...</td>
+                            <td colspan="6" class="text-center py-8 text-gray-500">加载中...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -404,6 +520,67 @@
                 <div id="personalBest" class="text-sm text-gray-300">
                     暂无记录
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史记录弹窗 -->
+    <div id="historyModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border-2 border-pink-500 rounded-3xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col modal-enter">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-500">
+                    📊 打字历史
+                </h2>
+                <button onclick="closeHistory()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+
+            <!-- 统计概览 -->
+            <div class="grid grid-cols-4 gap-4 mb-6">
+                <div class="stat-card rounded-xl p-4 text-center">
+                    <div class="text-gray-500 text-xs uppercase mb-1">总场次</div>
+                    <div id="totalGames" class="text-2xl font-bold text-cyan-400">0</div>
+                </div>
+                <div class="stat-card rounded-xl p-4 text-center">
+                    <div class="text-gray-500 text-xs uppercase mb-1">最高WPM</div>
+                    <div id="bestWpm" class="text-2xl font-bold text-green-400">0</div>
+                </div>
+                <div class="stat-card rounded-xl p-4 text-center">
+                    <div class="text-gray-500 text-xs uppercase mb-1">平均准确率</div>
+                    <div id="avgAccuracy" class="text-2xl font-bold text-purple-400">0%</div>
+                </div>
+                <div class="stat-card rounded-xl p-4 text-center">
+                    <div class="text-gray-500 text-xs uppercase mb-1">总单词数</div>
+                    <div id="totalWords" class="text-2xl font-bold text-yellow-400">0</div>
+                </div>
+            </div>
+
+            <!-- 历史列表 -->
+            <div class="overflow-y-auto flex-1 pr-2" style="max-height: 40vh;">
+                <table class="w-full text-left">
+                    <thead class="text-gray-500 text-xs uppercase tracking-wider sticky top-0 bg-gray-900">
+                        <tr>
+                            <th class="pb-3">日期</th>
+                            <th class="pb-3">词书</th>
+                            <th class="pb-3 text-right">WPM</th>
+                            <th class="pb-3 text-right">准确率</th>
+                            <th class="pb-3 text-right">评级</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody" class="text-sm">
+                        <tr>
+                            <td colspan="5" class="text-center py-8 text-gray-500">暂无记录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-4 flex gap-2">
+                <button onclick="clearHistory()" class="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg border border-red-500/50 hover:bg-red-500/30 transition-all text-sm">
+                    🗑️ 清空历史
+                </button>
+                <button onclick="exportHistory()" class="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg border border-green-500/50 hover:bg-green-500/30 transition-all text-sm">
+                    📤 导出数据
+                </button>
             </div>
         </div>
     </div>
@@ -433,19 +610,19 @@
             <p class="text-gray-400 mb-6" id="victoryMessage">太棒了！</p>
             
             <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                <div class="stat-card rounded-xl p-4 border border-gray-700">
                     <div class="text-gray-400 text-sm mb-1">最终WPM</div>
                     <div class="text-4xl font-bold text-cyan-400 font-mono" id="finalWPM">0</div>
                 </div>
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                <div class="stat-card rounded-xl p-4 border border-gray-700">
                     <div class="text-gray-400 text-sm mb-1">准确率</div>
                     <div class="text-4xl font-bold text-purple-400 font-mono" id="finalAcc">0%</div>
                 </div>
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                <div class="stat-card rounded-xl p-4 border border-gray-700">
                     <div class="text-gray-400 text-sm mb-1">最高连击</div>
                     <div class="text-4xl font-bold text-yellow-400 font-mono" id="finalCombo">0</div>
                 </div>
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                <div class="stat-card rounded-xl p-4 border border-gray-700">
                     <div class="text-gray-400 text-sm mb-1">评级</div>
                     <div class="text-4xl font-bold text-green-400" id="finalRank">S</div>
                 </div>
@@ -456,18 +633,23 @@
                     🏆 排行榜
                 </button>
                 <button onclick="submitAndNext()" class="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all transform hover:scale-105 text-lg">
-                    提交成绩 & 下一关
+                    再来一局
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 脚本加载顺序不可修改 -->
+    <!-- 脚本加载顺序 -->
     <script src="js/vocabulary.js"></script>
     <script src="js/firebase-config.js"></script>
     <script src="js/leaderboard.js"></script>
 
     <script>
+        // ==================== 配置 ====================
+        let currentDifficulty = 'normal';
+        let wordCount = { easy: 10, normal: 20, hard: 30, daily: 25 };
+        let leaderboardType = 'global';
+
         // ==================== 音频系统 ====================
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
@@ -517,7 +699,7 @@
             switch(type) {
                 case 'key':
                     osc.type = 'square';
-                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.setValueAtTime(800 + Math.random() * 100, now);
                     osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
                     gainNode.gain.setValueAtTime(0.1, now);
                     gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
@@ -652,6 +834,22 @@
         let currentCombo = 0;
         let finalScoreData = null;
 
+        // 难度设置
+        function setDifficulty(difficulty) {
+            currentDifficulty = difficulty;
+            
+            document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                btn.classList.remove('active', 'scale-105');
+            });
+            
+            const activeBtn = document.querySelector(`[data-difficulty="${difficulty}"]`);
+            activeBtn.classList.add('active', 'scale-105');
+            
+            if (!isPlaying) {
+                resetGame();
+            }
+        }
+
         // 检查并显示用户名设置
         function checkUsername() {
             const saved = leaderboard.getUsername();
@@ -686,11 +884,40 @@
             }
         }
 
+        // 生成每日挑战单词
+        function getDailyChallenge() {
+            const today = new Date().toDateString();
+            const seed = today.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+            
+            // 合并所有词书
+            const allWords = [];
+            Object.keys(vocabularyBooks).forEach(key => {
+                vocabularyBooks[key].forEach(word => {
+                    allWords.push({ ...word, book: key });
+                });
+            });
+            
+            // 伪随机选择
+            const selected = [];
+            for (let i = 0; i < wordCount.daily; i++) {
+                const index = (seed * (i + 1)) % allWords.length;
+                selected.push(allWords[index]);
+            }
+            
+            return selected;
+        }
+
         function generateWords() {
+            if (currentDifficulty === 'daily') {
+                words = getDailyChallenge();
+                return;
+            }
+            
             const book = vocabularyBooks[currentBook];
             words = [];
             const shuffled = [...book].sort(() => Math.random() - 0.5);
-            for (let i = 0; i < 20; i++) {
+            const count = wordCount[currentDifficulty];
+            for (let i = 0; i < count; i++) {
                 words.push(shuffled[i % shuffled.length]);
             }
         }
@@ -767,8 +994,29 @@
         }
 
         function handleInput(e) {
+            // 全局快捷键
+            if (!isPlaying && e.target.id !== 'usernameInput') {
+                if (e.key.toLowerCase() === 'r') {
+                    resetGame();
+                    return;
+                }
+                if (e.key.toLowerCase() === 'm') {
+                    toggleMusic();
+                    return;
+                }
+                if (e.key.toLowerCase() === 's') {
+                    toggleSound();
+                    return;
+                }
+                if (e.key.toLowerCase() === 'l') {
+                    showLeaderboard();
+                    return;
+                }
+            }
+
             if (!isPlaying) {
                 if (e.code === 'Space') {
+                    e.preventDefault();
                     startGame();
                 }
                 return;
@@ -947,8 +1195,13 @@
                 accuracy: accuracy,
                 book: currentBook,
                 combo: maxCombo,
-                rank: rank
+                rank: rank,
+                difficulty: currentDifficulty,
+                wordCount: words.length
             };
+            
+            // 保存到本地历史
+            saveToLocalHistory(finalScoreData);
             
             document.getElementById('finalWPM').textContent = wpm;
             document.getElementById('finalAcc').textContent = accuracy + '%';
@@ -1045,8 +1298,118 @@
             }
         }
 
+        // ==================== 本地历史记录 ====================
+        function saveToLocalHistory(scoreData) {
+            const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
+            history.unshift({
+                ...scoreData,
+                date: new Date().toLocaleDateString(),
+                timestamp: Date.now()
+            });
+            
+            // 只保留最近100条
+            if (history.length > 100) {
+                history.splice(100);
+            }
+            
+            localStorage.setItem('typequest_history', JSON.stringify(history));
+        }
+
+        function showHistory() {
+            document.getElementById('historyModal').classList.remove('hidden');
+            loadHistory();
+        }
+
+        function closeHistory() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
+            const tbody = document.getElementById('historyBody');
+            
+            if (history.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">暂无记录</td></tr>';
+                document.getElementById('totalGames').textContent = '0';
+                document.getElementById('bestWpm').textContent = '0';
+                document.getElementById('avgAccuracy').textContent = '0%';
+                document.getElementById('totalWords').textContent = '0';
+                return;
+            }
+            
+            // 更新统计
+            document.getElementById('totalGames').textContent = history.length;
+            document.getElementById('bestWpm').textContent = Math.max(...history.map(h => h.wpm));
+            const avgAcc = Math.round(history.reduce((sum, h) => sum + h.accuracy, 0) / history.length);
+            document.getElementById('avgAccuracy').textContent = avgAcc + '%';
+            document.getElementById('totalWords').textContent = history.reduce((sum, h) => sum + (h.wordCount || 0), 0);
+            
+            const bookColors = {
+                cet4: 'text-blue-400',
+                cet6: 'text-purple-400',
+                ielts: 'text-red-400',
+                toefl: 'text-orange-400',
+                gre: 'text-green-400',
+                programming: 'text-cyan-400',
+                business: 'text-amber-400',
+                academic: 'text-emerald-400'
+            };
+            
+            const rankColors = {
+                'SSS': 'text-yellow-400',
+                'S': 'text-green-400',
+                'A': 'text-cyan-400',
+                'B': 'text-purple-400',
+                'C': 'text-gray-400'
+            };
+            
+            tbody.innerHTML = history.map(record => `
+                <tr class="border-b border-gray-800 hover:bg-gray-800/50">
+                    <td class="py-2 text-gray-400">${record.date}</td>
+                    <td class="py-2 ${bookColors[record.book] || 'text-gray-400'}">${(record.book || 'unknown').toUpperCase()}</td>
+                    <td class="py-2 text-right font-mono text-cyan-400">${record.wpm}</td>
+                    <td class="py-2 text-right font-mono text-purple-400">${record.accuracy}%</td>
+                    <td class="py-2 text-right font-bold ${rankColors[record.rank] || 'text-gray-400'}">${record.rank || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function clearHistory() {
+            if (confirm('确定要清空所有历史记录吗？')) {
+                localStorage.removeItem('typequest_history');
+                loadHistory();
+            }
+        }
+
+        function exportHistory() {
+            const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
+            const dataStr = JSON.stringify(history, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `typequest-history-${new Date().toLocaleDateString()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         // ==================== 排行榜功能 ====================
         let currentFilter = 'all';
+
+        function switchLeaderboardType(type) {
+            leaderboardType = type;
+            
+            document.querySelectorAll('.lb-type-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500');
+                btn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-600');
+            });
+            
+            const activeBtn = document.querySelector(`[data-type="${type}"]`);
+            activeBtn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-600');
+            activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500', 'active');
+            
+            loadLeaderboard();
+        }
 
         function showLeaderboard() {
             document.getElementById('leaderboardModal').classList.remove('hidden');
@@ -1068,41 +1431,70 @@
             
             const activeBtn = document.querySelector(`[data-filter="${book}"]`);
             activeBtn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-600');
-            activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500');
+            activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500', 'active');
             
             loadLeaderboard();
         }
 
         async function loadLeaderboard() {
             const tbody = document.getElementById('leaderboardBody');
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">加载中...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">加载中...</td></tr>';
             
-            const data = await leaderboard.getLeaderboard(currentFilter, 20);
+            let data = [];
+            
+            if (leaderboardType === 'local') {
+                // 本地排行榜
+                const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
+                const username = leaderboard.getUsername();
+                
+                // 按词书分组取最佳
+                const bestRecords = {};
+                history.forEach(record => {
+                    const key = `${record.book}_${username}`;
+                    if (!bestRecords[key] || record.wpm > bestRecords[key].wpm) {
+                        bestRecords[key] = { ...record, username: username };
+                    }
+                });
+                
+                data = Object.values(bestRecords).sort((a, b) => b.wpm - a.wpm);
+            } else {
+                // 全球排行榜
+                data = await leaderboard.getLeaderboard(currentFilter, 20);
+            }
+            
+            // 筛选
+            if (currentFilter !== 'all') {
+                data = data.filter(r => r.book === currentFilter);
+            }
             
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">暂无数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">暂无数据</td></tr>';
                 return;
             }
             
-            tbody.innerHTML = data.map((record, index) => {
+            const bookColors = {
+                cet4: 'text-blue-400',
+                cet6: 'text-purple-400',
+                ielts: 'text-red-400',
+                toefl: 'text-orange-400',
+                gre: 'text-green-400',
+                programming: 'text-cyan-400',
+                business: 'text-amber-400',
+                academic: 'text-emerald-400'
+            };
+            
+            tbody.innerHTML = data.slice(0, 20).map((record, index) => {
                 const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'text-gray-400';
                 const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
-                const bookColors = {
-                    cet4: 'text-blue-400',
-                    cet6: 'text-purple-400',
-                    ielts: 'text-red-400',
-                    toefl: 'text-orange-400',
-                    gre: 'text-green-400',
-                    programming: 'text-cyan-400'
-                };
                 
                 return `
                     <tr class="leaderboard-item border-b border-gray-800">
                         <td class="py-3 pl-2 font-bold ${rankClass}">${medal}</td>
-                        <td class="py-3 font-semibold text-white">${record.username}</td>
-                        <td class="py-3 ${bookColors[record.book] || 'text-gray-400'}">${record.book.toUpperCase()}</td>
+                        <td class="py-3 font-semibold text-white">${record.username || '匿名'}</td>
+                        <td class="py-3 ${bookColors[record.book] || 'text-gray-400'}">${(record.book || 'unknown').toUpperCase()}</td>
                         <td class="py-3 text-right font-mono text-cyan-400">${record.wpm}</td>
                         <td class="py-3 text-right font-mono text-purple-400">${record.accuracy}%</td>
+                        <td class="py-3 text-right text-gray-500">${record.date || '-'}</td>
                     </tr>
                 `;
             }).join('');
@@ -1117,14 +1509,33 @@
                 return;
             }
             
-            const record = await leaderboard.getPersonalBest(username, currentFilter);
+            let record = null;
+            
+            if (leaderboardType === 'local') {
+                const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
+                if (history.length > 0) {
+                    if (currentFilter !== 'all') {
+                        const filtered = history.filter(h => h.book === currentFilter);
+                        if (filtered.length > 0) {
+                            record = filtered.sort((a, b) => b.wpm - a.wpm)[0];
+                        }
+                    } else {
+                        record = history.sort((a, b) => b.wpm - a.wpm)[0];
+                    }
+                }
+            } else {
+                record = await leaderboard.getPersonalBest(username, currentFilter);
+            }
+            
             if (record) {
                 div.innerHTML = `
                     <span class="text-cyan-400 font-bold">${record.wpm} WPM</span>
                     <span class="text-gray-500 mx-2">|</span>
                     <span class="text-purple-400">${record.accuracy}% 准确率</span>
                     <span class="text-gray-500 mx-2">|</span>
-                    <span class="text-yellow-400">${record.book.toUpperCase()}</span>
+                    <span class="text-yellow-400">${(record.book || 'unknown').toUpperCase()}</span>
+                    <span class="text-gray-500 mx-2">|</span>
+                    <span class="text-green-400">${record.rank || '-'}</span>
                 `;
             } else {
                 div.textContent = '暂无记录，快来挑战吧！';
@@ -1142,8 +1553,15 @@
         document.getElementById('startOverlay').addEventListener('click', startGame);
 
         document.addEventListener('click', (e) => {
-            if (isPlaying && !e.target.closest('button') && !e.target.closest('#leaderboardModal') && !e.target.closest('#usernameModal') && !e.target.closest('#victoryModal')) {
+            if (isPlaying && !e.target.closest('button') && !e.target.closest('#leaderboardModal') && !e.target.closest('#usernameModal') && !e.target.closest('#victoryModal') && !e.target.closest('#historyModal')) {
                 document.getElementById('inputField').focus();
+            }
+        });
+
+        // 回车键保存用户名
+        document.getElementById('usernameInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                saveUsername();
             }
         });
 
