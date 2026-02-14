@@ -1,121 +1,70 @@
-// js/leaderboard.js
 class Leaderboard {
     constructor() {
+        if (!window.firebase) {
+            console.error('Firebase 未加载');
+            this.db = null;
+            this.currentUser = '匿名玩家_' + Math.floor(Math.random()*10000);
+            return;
+        }
         this.db = firebase.database();
-        this.currentUser = null;
-        this.leaderboardData = [];
+        this.currentUser = localStorage.getItem('typequest_username') || '匿名玩家_' + Math.floor(Math.random()*10000);
     }
-
-    // 设置用户名
-    setUsername(username) {
-        this.currentUser = username || '匿名玩家_' + Math.floor(Math.random() * 10000);
+    setUsername(name) {
+        this.currentUser = name || '匿名玩家_' + Math.floor(Math.random()*10000);
         localStorage.setItem('typequest_username', this.currentUser);
         return this.currentUser;
     }
-
-    // 获取用户名
     getUsername() {
         return localStorage.getItem('typequest_username') || this.currentUser;
     }
-
-    // 提交分数
-    async submitScore(scoreData) {
-        const username = this.getUsername();
-        const record = {
-            username: username,
-            wpm: scoreData.wpm,
-            accuracy: scoreData.accuracy,
-            book: scoreData.book,
-            combo: scoreData.combo,
-            rank: scoreData.rank,
+    async submitScore(data) {
+        if (!this.db) return false;
+        const u = this.getUsername();
+        const rec = {
+            username: u,
+            wpm: data.wpm,
+            accuracy: data.accuracy,
+            book: data.book,
+            combo: data.combo,
+            rank: data.rank,
             timestamp: firebase.database.ServerValue.TIMESTAMP,
             date: new Date().toLocaleDateString()
         };
-
         try {
-            // 写入到排行榜
-            await this.db.ref('leaderboard').push(record);
-            
-            // 同时写入个人最佳记录
-            const personalBestRef = this.db.ref(`personalBest/${username}/${scoreData.book}`);
-            const snapshot = await personalBestRef.once('value');
-            const currentBest = snapshot.val();
-            
-            if (!currentBest || scoreData.wpm > currentBest.wpm) {
-                await personalBestRef.set(record);
-            }
-            
+            await this.db.ref('leaderboard').push(rec);
+            const bestRef = this.db.ref(`personalBest/${u}/${data.book}`);
+            const snap = await bestRef.once('value');
+            const cur = snap.val();
+            if (!cur || data.wpm > cur.wpm) await bestRef.set(rec);
             return true;
-        } catch (error) {
-            console.error('提交分数失败:', error);
+        } catch (e) {
+            console.error('提交失败', e);
             return false;
         }
     }
-
-    // 获取排行榜（前20名）
-    async getLeaderboard(book = 'all', limit = 20) {
+    async getLeaderboard(book='all', limit=20) {
+        if (!this.db) return [];
         try {
-            let query = this.db.ref('leaderboard');
-            
-            if (book !== 'all') {
-                // 按词书筛选需要在客户端完成，因为 Firebase 实时数据库不支持复杂查询
-                const snapshot = await query.once('value');
-                const data = [];
-                snapshot.forEach(child => {
-                    const record = child.val();
-                    if (record.book === book) {
-                        data.push(record);
-                    }
-                });
-                
-                // 按 WPM 排序并限制数量
-                return data.sort((a, b) => b.wpm - a.wpm).slice(0, limit);
-            } else {
-                const snapshot = await query.orderByChild('wpm').limitToLast(limit).once('value');
-                const data = [];
-                snapshot.forEach(child => {
-                    data.unshift(child.val()); // 反转以获得降序
-                });
-                return data;
-            }
-        } catch (error) {
-            console.error('获取排行榜失败:', error);
+            const q = this.db.ref('leaderboard');
+            const snap = await q.once('value');
+            const arr = [];
+            snap.forEach(c => arr.push(c.val()));
+            let res = arr.sort((a,b) => (b.wpm||0)-(a.wpm||0));
+            if (book!=='all') res = res.filter(x => x.book===book);
+            return res.slice(0, limit);
+        } catch (e) {
+            console.error('获取排行失败', e);
             return [];
         }
     }
-
-    // 获取个人记录
-    async getPersonalBest(username, book) {
+    async getPersonalBest(u, book) {
+        if (!this.db) return null;
         try {
-            const snapshot = await this.db.ref(`personalBest/${username}/${book}`).once('value');
-            return snapshot.val();
-        } catch (error) {
-            console.error('获取个人记录失败:', error);
+            const snap = await this.db.ref(`personalBest/${u}/${book}`).once('value');
+            return snap.val();
+        } catch (e) {
+            console.error('获取个人记录失败', e);
             return null;
         }
     }
-
-    // 实时监听排行榜更新
-    onLeaderboardUpdate(callback, book = 'all') {
-        this.db.ref('leaderboard').on('value', (snapshot) => {
-            const data = [];
-            snapshot.forEach(child => {
-                data.push(child.val());
-            });
-            
-            // 排序
-            data.sort((a, b) => b.wpm - a.wpm);
-            
-            // 筛选
-            if (book !== 'all') {
-                const filtered = data.filter(r => r.book === book);
-                callback(filtered.slice(0, 20));
-            } else {
-                callback(data.slice(0, 20));
-            }
-        });
-    }
 }
-
-// 创建全局实例
-const leaderboard = new Leaderboard();
