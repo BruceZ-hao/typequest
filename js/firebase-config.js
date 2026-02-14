@@ -1,5 +1,5 @@
 // js/firebase-config.js
-// 替换为你自己的Firebase配置信息
+// 替换为你自己的Firebase配置信息（可选）
 const firebaseConfig = {
     apiKey: "AIzaSyCL7qHx-kmj7PDhfnm_AcwKoMCZtw7xeFs",
     authDomain: "typequest-leaderboard.firebaseapp.com",
@@ -10,6 +10,17 @@ const firebaseConfig = {
     appId: "1:57783452163:web:dbab039b3f64198ce80436"
 };
 
-// 初始化Firebase（必须使用compat版本，不可修改）
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+// 安全初始化Firebase（无网络时自动降级）
+let database = null;
+let firebaseInitialized = false;
+
+try {
+    if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        database = firebase.database();
+        firebaseInitialized = true;
+        console.log('✅ Firebase 初始化成功');
+    }
+} catch (error) {
+    console.log('⚠️ Firebase 初始化失败，使用本地模式:', error);
+}
