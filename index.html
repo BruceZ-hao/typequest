@@ -3,1897 +3,422 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TypeQuest - 单词冒险</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase 核心CDN（必须按顺序引入） -->
+    <meta name="description" content="TypeQuest 是一个面向 CET、雅思、托福、GRE 与编程英语的单词打字训练场，支持本地成绩沉淀与云端排行榜。">
+    <meta name="theme-color" content="#12355b">
+    <title>TypeQuest | 单词打字训练场</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/site.css">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@400;700;900&display=swap');
-
-        :root {
-            --primary-cyan: #00d9ff;
-            --primary-purple: #a855f7;
-            --bg-dark: #0a0a0f;
-            --card-dark: #1e293b;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow-x: hidden;
-            /* 禁止页面整体滚动偏移 */
-            position: relative;
-        }
-
-        body {
-            font-family: 'JetBrains Mono', 'Noto Sans SC', monospace;
-            background: var(--bg-dark);
-            padding-bottom: 100px;
-        }
-
-        /* 核心修复：移除网格平移动画，改为静态网格，保留赛博质感 */
-        .cyber-grid {
-            background-image: 
-                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            /* 彻底移除位移动画 */
-            animation: none;
-            /* 固定背景，不随页面滚动 */
-            background-attachment: fixed;
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-        }
-
-        .scroll-container {
-            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-            -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-        }
-
-        .word {
-            display: inline-flex;
-            margin-right: 2rem;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .word.completed {
-            opacity: 0.3;
-            transform: scale(0.9);
-        }
-
-        .word.current {
-            transform: scale(1.1);
-            filter: drop-shadow(0 0 10px rgba(0, 217, 255, 0.5));
-        }
-
-        .char {
-            display: inline-block;
-            transition: all 0.1s;
-            position: relative;
-        }
-
-        .char.correct {
-            color: #00ff88;
-            text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
-        }
-
-        .char.wrong {
-            color: #ff4444;
-            text-decoration: underline;
-            text-decoration-color: #ff4444;
-            animation: shake 0.2s;
-        }
-
-        .char.pending {
-            color: #4b5563;
-        }
-
-        .char.cursor {
-            border-bottom: 4px solid var(--primary-cyan);
-            animation: blink 1s infinite;
-        }
-
-        @keyframes blink {
-            0%, 50% { border-bottom-color: var(--primary-cyan); }
-            51%, 100% { border-bottom-color: transparent; }
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-3px); }
-            75% { transform: translateX(3px); }
-        }
-
-        .translation {
-            position: absolute;
-            top: -3rem;
-            left: 50%;
-            transform: translateX(-50%) translateY(10px);
-            background: linear-gradient(135deg, var(--primary-cyan), #0099cc);
-            color: #000;
-            padding: 0.4rem 1rem;
-            border-radius: 0.75rem;
-            font-size: 1rem;
-            font-family: 'Noto Sans SC', sans-serif;
-            font-weight: 800;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            box-shadow: 0 4px 15px rgba(0, 217, 255, 0.4);
-            z-index: 10;
-        }
-
-        .word.completed .translation {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .translation::after {
-            content: '';
-            position: absolute;
-            bottom: -6px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 6px solid var(--primary-cyan);
-        }
-
-        .particle {
-            position: absolute;
-            pointer-events: none;
-            border-radius: 50%;
-            animation: particleFloat 0.8s ease-out forwards;
-        }
-
-        @keyframes particleFloat {
-            0% { opacity: 1; transform: translate(0, 0) scale(1); }
-            100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
-        }
-
-        .book-selector {
-            display: flex;
-            gap: 0.5rem;
-            overflow-x: auto;
-            padding: 0.5rem;
-            scrollbar-width: none;
-        }
-
-        .book-selector::-webkit-scrollbar {
-            display: none;
-        }
-
-        .book-btn {
-            flex-shrink: 0;
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            border: 2px solid transparent;
-            transition: all 0.3s;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        .book-btn:hover {
-            transform: translateY(-2px);
-        }
-
-        .book-btn.active {
-            border-color: currentColor;
-            box-shadow: 0 0 15px currentColor;
-        }
-
-        .progress-glow {
-            box-shadow: 0 0 10px currentColor;
-        }
-
-        /* 修复：移除背景光斑的上下浮动动画，改为静态呼吸效果（无位移） */
-        .bg-glow {
-            opacity: 0.6;
-            animation: glowBreath 6s ease-in-out infinite;
-        }
-
-        @keyframes glowBreath {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 0.9; }
-        }
-
-        .music-control {
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .victory-overlay {
-            background: radial-gradient(circle, rgba(0,217,255,0.2) 0%, transparent 70%);
-        }
-
-        .star {
-            position: absolute;
-            color: #ffd700;
-            font-size: 2rem;
-            animation: starPop 0.6s ease-out forwards;
-        }
-
-        @keyframes starPop {
-            0% { transform: scale(0) rotate(0deg); opacity: 0; }
-            50% { transform: scale(1.5) rotate(180deg); opacity: 1; }
-            100% { transform: scale(1) rotate(360deg); opacity: 1; }
-        }
-
-        .leaderboard-item {
-            transition: all 0.3s;
-        }
-
-        .leaderboard-item:hover {
-            transform: translateX(5px);
-            background: rgba(0, 217, 255, 0.1);
-        }
-
-        .rank-1 { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
-        .rank-2 { color: #c0c0c0; text-shadow: 0 0 10px #c0c0c0; }
-        .rank-3 { color: #cd7f32; text-shadow: 0 0 10px #cd7f32; }
-
-        .modal-enter {
-            animation: modalEnter 0.3s ease-out;
-        }
-
-        @keyframes modalEnter {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        /* 修复后的底部快捷键栏 - 彻底解决排版截断 */
-        .keyboard-hint {
-            position: fixed;
-            bottom: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.95);
-            border: 1px solid rgba(0, 217, 255, 0.3);
-            border-radius: 16px;
-            padding: 12px 20px;
-            z-index: 40;
-            backdrop-filter: blur(12px);
-            width: 95%;
-            max-width: 1200px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-        }
-
-        .keyboard-scroll {
-            display: flex;
-            gap: 24px;
-            overflow-x: auto;
-            scrollbar-width: none;
-            align-items: center;
-            justify-content: center;
-            padding: 4px 0;
-        }
-
-        .keyboard-scroll::-webkit-scrollbar {
-            display: none;
-        }
-
-        .key-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-
-        .key {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 36px;
-            height: 36px;
-            background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
-            border: 1px solid #4b5563;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            color: #d1d5db;
-            box-shadow: 0 2px 0 #111827;
-            flex-shrink: 0;
-        }
-
-        .key-text {
-            color: #e2e8f0;
-            font-size: 14px;
-            white-space: nowrap;
-        }
-
-        .difficulty-btn {
-            transition: all 0.2s;
-        }
-
-        .difficulty-btn.active {
-            transform: scale(1.05);
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
-            border: 1px solid rgba(100, 116, 139, 0.3);
-        }
-
-        .glow-text {
-            text-shadow: 0 0 20px currentColor;
-        }
-
-        /* 个人中心样式 */
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-purple));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .user-avatar:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 15px rgba(0, 217, 255, 0.5);
-        }
-
-        .auth-btn {
-            padding: 8px 16px;
-            border-radius: 9999px;
-            border: 1px solid var(--primary-cyan);
-            background: rgba(0, 217, 255, 0.1);
-            color: var(--primary-cyan);
-            font-weight: 600;
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-
-        .auth-btn:hover {
-            background: var(--primary-cyan);
-            color: #000;
-            box-shadow: 0 0 15px rgba(0, 217, 255, 0.5);
-        }
-
-        .form-input {
-            width: 100%;
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid #475569;
-            border-radius: 12px;
-            padding: 12px 16px;
-            color: white;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary-cyan);
-            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
-        }
-
-        .btn-primary {
-            width: 100%;
-            padding: 12px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-purple));
-            color: white;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 217, 255, 0.4);
-        }
-
-        .btn-secondary {
-            width: 100%;
-            padding: 12px;
-            border-radius: 12px;
-            background: transparent;
-            color: #94a3b8;
-            font-weight: 600;
-            border: 1px solid #475569;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-secondary:hover {
-            border-color: var(--primary-cyan);
-            color: var(--primary-cyan);
-        }
-
-        .tab-btn {
-            padding: 8px 16px;
-            border-radius: 8px;
-            background: transparent;
-            color: #94a3b8;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .tab-btn.active {
-            background: rgba(0, 217, 255, 0.1);
-            color: var(--primary-cyan);
-        }
-    </style>
 </head>
 <body>
-    <!-- 固定静态背景 -->
-    <div class="cyber-grid"></div>
+    <div class="site-shell">
+        <div class="page-glow glow-left" aria-hidden="true"></div>
+        <div class="page-glow glow-right" aria-hidden="true"></div>
 
-    <!-- 背景光斑（无位移，仅呼吸效果） -->
-    <div class="fixed inset-0 pointer-events-none overflow-hidden">
-        <div class="absolute top-20 left-10 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl bg-glow"></div>
-        <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl bg-glow" style="animation-delay: -3s;"></div>
-    </div>
-
-    <div class="relative z-10 container mx-auto px-4 py-6 max-w-6xl">
-        
-        <!-- 顶部标题 + 个人中心入口 -->
-        <header class="flex justify-between items-center mb-6">
-            <div class="text-center flex-1">
-                <h1 class="text-5xl font-black mb-2 tracking-tighter">
-                    <span class="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent glow-text">
-                        TYPE
-                    </span>
-                    <span class="text-white">QUEST</span>
+        <header class="topbar">
+            <div class="brand-block">
+                <div class="eyebrow">Arcade Vocabulary Lab</div>
+                <h1 class="hero-title">
+                    <span>Type</span><span class="accent-text">Quest</span>
                 </h1>
-                <p class="text-gray-400 text-sm tracking-widest uppercase">单词冒险 · 全球排行榜 · 词书挑战</p>
+                <p class="hero-copy">
+                    把单词记忆改造成一场短兵相接的打字训练。切换词书、调整强度、保存历史成绩，
+                    本地数据随练随沉淀，云端排行榜可用时自动同步最佳表现。
+                </p>
             </div>
-            <!-- 个人中心/登录入口 -->
-            <div id="userEntry" class="ml-4">
-                <button class="auth-btn" onclick="showAuthModal()">
-                    登录/注册
+
+            <div class="topbar-actions">
+                <button id="leaderboardQuickButton" class="ghost-button accent-button" type="button">排行榜</button>
+                <button id="profileButton" class="ghost-button" type="button">
+                    玩家档案
+                    <span id="headerUsername" class="button-tag">匿名玩家</span>
                 </button>
             </div>
         </header>
 
-        <!-- 难度选择 -->
-        <div class="mb-4">
-            <div class="text-center text-gray-400 text-xs uppercase tracking-wider mb-2">难度选择</div>
-            <div class="flex justify-center gap-2 flex-wrap">
-                <button onclick="setDifficulty('easy')" class="difficulty-btn px-4 py-2 rounded-full bg-green-500/20 text-green-400 border border-green-500/50 text-sm active" data-difficulty="easy">
-                    🌱 简单 (10词)
-                </button>
-                <button onclick="setDifficulty('normal')" class="difficulty-btn px-4 py-2 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 text-sm" data-difficulty="normal">
-                    🔥 普通 (20词)
-                </button>
-                <button onclick="setDifficulty('hard')" class="difficulty-btn px-4 py-2 rounded-full bg-red-500/20 text-red-400 border border-red-500/50 text-sm" data-difficulty="hard">
-                    💀 困难 (30词)
-                </button>
-                <button onclick="setDifficulty('daily')" class="difficulty-btn px-4 py-2 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/50 text-sm" data-difficulty="daily">
-                    📅 每日挑战
-                </button>
-            </div>
-        </div>
-
-        <!-- 词书选择 -->
-        <div class="mb-6">
-            <div class="text-center text-gray-400 text-xs uppercase tracking-wider mb-2">选择词书</div>
-            <div class="book-selector justify-center">
-                <button onclick="selectBook('cet4')" class="book-btn bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 active" data-book="cet4" style="color: #60a5fa;">
-                    📘 四级核心
-                </button>
-                <button onclick="selectBook('cet6')" class="book-btn bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" data-book="cet6" style="color: #c084fc;">
-                    📗 六级核心
-                </button>
-                <button onclick="selectBook('ielts')" class="book-btn bg-red-500/20 text-red-400 hover:bg-red-500/30" data-book="ielts" style="color: #f87171;">
-                    📕 雅思高频
-                </button>
-                <button onclick="selectBook('toefl')" class="book-btn bg-orange-500/20 text-orange-400 hover:bg-orange-500/30" data-book="toefl" style="color: #fb923c;">
-                    📙 托福核心
-                </button>
-                <button onclick="selectBook('gre')" class="book-btn bg-green-500/20 text-green-400 hover:bg-green-500/30" data-book="gre" style="color: #4ade80;">
-                    📓 GRE3000
-                </button>
-                <button onclick="selectBook('programming')" class="book-btn bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30" data-book="programming" style="color: #22d3ee;">
-                    💻 编程术语
-                </button>
-                <button onclick="selectBook('business')" class="book-btn bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" data-book="business" style="color: #f59e0b;">
-                    💼 商务英语
-                </button>
-                <button onclick="selectBook('academic')" class="book-btn bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" data-book="academic" style="color: #10b981;">
-                    🎓 学术英语
-                </button>
-            </div>
-        </div>
-
-        <!-- 统计面板 -->
-        <div class="flex justify-center gap-4 mb-4 text-center flex-wrap">
-            <div class="stat-card rounded-xl px-4 py-2">
-                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">WPM</div>
-                <div id="wpm" class="text-2xl font-bold text-cyan-400 font-mono">0</div>
-            </div>
-            <div class="stat-card rounded-xl px-4 py-2">
-                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">准确率</div>
-                <div id="accuracy" class="text-2xl font-bold text-purple-400 font-mono">100%</div>
-            </div>
-            <div class="stat-card rounded-xl px-4 py-2">
-                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">进度</div>
-                <div id="progress-text" class="text-2xl font-bold text-green-400 font-mono">0/0</div>
-            </div>
-            <div class="stat-card rounded-xl px-4 py-2">
-                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">连击</div>
-                <div id="combo" class="text-2xl font-bold text-yellow-400 font-mono">0</div>
-            </div>
-            <div class="stat-card rounded-xl px-4 py-2 cursor-pointer hover:border-cyan-500 transition-all" onclick="showLeaderboard()">
-                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">排行榜</div>
-                <div class="text-2xl">🏆</div>
-            </div>
-            <div class="stat-card rounded-xl px-4 py-2 cursor-pointer hover:border-pink-500 transition-all" onclick="showHistory()">
-                <div class="text-gray-500 text-xs uppercase tracking-wider mb-1">历史</div>
-                <div class="text-2xl">📊</div>
-            </div>
-        </div>
-
-        <!-- 进度条 -->
-        <div class="w-full max-w-2xl mx-auto bg-gray-800 rounded-full h-2 mb-6 overflow-hidden">
-            <div id="progress-bar" class="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 w-0 transition-all duration-300 progress-glow"></div>
-        </div>
-
-        <!-- 打字区域 -->
-        <div class="relative bg-gray-900/80 backdrop-blur border border-gray-700 rounded-2xl p-8 mb-4 overflow-hidden shadow-2xl" style="height: 220px;">
-            
-            <div id="startOverlay" class="absolute inset-0 bg-gray-900/95 z-20 flex flex-col items-center justify-center cursor-pointer transition-opacity duration-300">
-                <div class="text-6xl mb-3 animate-bounce">🎮</div>
-                <h2 class="text-2xl font-bold text-white mb-2">点击开始冒险</h2>
-                <p class="text-gray-400 text-sm">按空格键或点击此处开始</p>
-                <div class="mt-4 flex gap-2 text-xs text-gray-500 flex-wrap justify-center">
-                    <span class="bg-gray-800 px-3 py-1 rounded-full">🎵 背景音乐</span>
-                    <span class="bg-gray-800 px-3 py-1 rounded-full">🔊 8-bit音效</span>
-                    <span class="bg-gray-800 px-3 py-1 rounded-full">🏆 全球排行</span>
-                    <span class="bg-gray-800 px-3 py-1 rounded-full">📊 本地记录</span>
+        <section class="hero-card">
+            <div class="hero-card-copy">
+                <div class="panel-kicker">Focus Loop</div>
+                <h2>用稳定节奏练速度，也把词义和熟练度一起带出来。</h2>
+                <p>
+                    当前版本重做了界面层级、移动端输入体验、本地玩家资料、成绩历史和排行榜视图，
+                    让这个仓库从“能玩”提升到“能持续练”。
+                </p>
+                <div class="hero-actions">
+                    <button id="heroStartButton" class="primary-button" type="button">开始今天这轮</button>
+                    <button id="heroHistoryButton" class="ghost-button" type="button">查看训练记录</button>
                 </div>
             </div>
 
-            <div class="scroll-container w-full h-full flex items-center overflow-hidden relative">
-                <div id="textTrack" class="flex items-center whitespace-nowrap transition-transform duration-500 ease-out pl-[50%]">
+            <div class="metric-strip" id="heroMetrics">
+                <article class="metric-card">
+                    <span>词书</span>
+                    <strong id="metricBooks">0</strong>
+                </article>
+                <article class="metric-card">
+                    <span>总词量</span>
+                    <strong id="metricWords">0</strong>
+                </article>
+                <article class="metric-card">
+                    <span>最佳 WPM</span>
+                    <strong id="metricBestWpm">0</strong>
+                </article>
+                <article class="metric-card">
+                    <span>练习次数</span>
+                    <strong id="metricRuns">0</strong>
+                </article>
+            </div>
+        </section>
+
+        <main class="workspace-grid">
+            <section class="arena-card">
+                <div class="arena-head">
+                    <div>
+                        <div class="panel-kicker">Practice Arena</div>
+                        <h2>当前训练</h2>
+                    </div>
+
+                    <div class="status-row">
+                        <div id="syncStatus" class="status-pill">云榜状态检测中</div>
+                        <button id="soundToggleButton" class="ghost-button compact-button" type="button">音效：开</button>
+                    </div>
                 </div>
-            </div>
 
-            <input type="text" id="inputField" class="absolute opacity-0 top-0 left-0 w-full h-full cursor-default" autocomplete="off" autocapitalize="off" spellcheck="false">
-        </div>
+                <div class="control-panel">
+                    <div class="control-group">
+                        <div class="control-label">难度</div>
+                        <div id="difficultyControls" class="chip-grid"></div>
+                    </div>
 
-        <!-- 当前单词中文 -->
-        <div class="text-center mb-6 h-16 flex items-center justify-center">
-            <div id="currentTranslation" class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 opacity-0 transition-all duration-300 transform translate-y-4 font-sans">
-                准备开始...
-            </div>
-        </div>
+                    <div class="control-group">
+                        <div class="control-label">词书</div>
+                        <div id="bookControls" class="book-grid"></div>
+                    </div>
+                </div>
 
-        <!-- 控制区 -->
-        <div class="flex justify-center gap-4 flex-wrap">
-            <button onclick="resetGame()" class="group px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center gap-2">
-                <svg class="w-5 h-5 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                重新开始
-            </button>
-            
-            <button onclick="toggleMusic()" id="musicBtn" class="music-control px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-green-500 hover:text-green-400 transition-all flex items-center gap-2">
-                <span id="musicIcon">🎵</span>
-                <span>音乐开启</span>
-            </button>
-            
-            <button onclick="toggleSound()" id="soundBtn" class="px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-purple-500 hover:text-purple-400 transition-all flex items-center gap-2">
-                <span id="soundIcon">🔊</span>
-                <span>音效开启</span>
-            </button>
+                <div class="progress-strip">
+                    <div class="progress-item">
+                        <span>进度</span>
+                        <strong id="progressText">0 / 0</strong>
+                    </div>
+                    <div class="progress-item">
+                        <span>当前释义</span>
+                        <strong id="translationLabel">准备开始</strong>
+                    </div>
+                    <div class="progress-item">
+                        <span>当前词书</span>
+                        <strong id="focusBookLabel">CET-4</strong>
+                    </div>
+                </div>
 
-            <button onclick="showLeaderboard()" class="px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-yellow-500 hover:text-yellow-400 transition-all flex items-center gap-2">
-                <span>🏆</span>
-                <span>查看排行</span>
-            </button>
+                <div class="progress-bar-shell" aria-hidden="true">
+                    <div id="progressBar" class="progress-bar-fill"></div>
+                </div>
 
-            <button onclick="showHistory()" class="px-6 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-pink-500 hover:text-pink-400 transition-all flex items-center gap-2">
-                <span>📊</span>
-                <span>历史记录</span>
-            </button>
-        </div>
+                <div id="typingStage" class="typing-stage" tabindex="0">
+                    <div class="stage-callout">
+                        <span id="stageBadge" class="stage-badge">待开始</span>
+                        <p id="stageHint" class="stage-hint">点击“开始今天这轮”或把光标放到输入框后直接开打。</p>
+                    </div>
+
+                    <div id="wordRack" class="word-rack" aria-live="polite"></div>
+                </div>
+
+                <div class="focus-panel">
+                    <div>
+                        <div class="focus-label">当前目标词</div>
+                        <div id="focusWord" class="focus-word">adventure</div>
+                    </div>
+                    <div class="focus-meta">
+                        <span id="focusDifficultyLabel">标准强度</span>
+                        <span id="selectedWordCount">0 个词</span>
+                    </div>
+                </div>
+
+                <label class="input-shell" for="typingInput">
+                    <span>输入区</span>
+                    <input
+                        id="typingInput"
+                        class="typing-input"
+                        type="text"
+                        inputmode="latin"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        placeholder="点击这里开始输入，支持桌面键盘和手机软键盘"
+                    >
+                </label>
+
+                <div class="action-row">
+                    <button id="startButton" class="primary-button" type="button">开始训练</button>
+                    <button id="resetButton" class="ghost-button" type="button">重开这一轮</button>
+                    <button id="leaderboardButton" class="ghost-button" type="button">查看排行榜</button>
+                    <button id="historyButton" class="ghost-button" type="button">成绩历史</button>
+                </div>
+
+                <div class="shortcut-bar">
+                    <span><strong>Enter</strong> 开始</span>
+                    <span><strong>Backspace</strong> 回退</span>
+                    <span><strong>Esc</strong> 关闭弹窗</span>
+                    <span><strong>Click/Tap</strong> 聚焦输入区</span>
+                </div>
+            </section>
+
+            <aside class="insight-column">
+                <article class="panel-card">
+                    <div class="panel-kicker">Live Stats</div>
+                    <h3>实时战绩</h3>
+                    <div class="stat-grid">
+                        <div class="stat-box">
+                            <span>WPM</span>
+                            <strong id="statWpm">0</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>准确率</span>
+                            <strong id="statAccuracy">100%</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>连击</span>
+                            <strong id="statCombo">0</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>用时</span>
+                            <strong id="statTime">00:00</strong>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel-card">
+                    <div class="panel-kicker">Pack Insight</div>
+                    <h3>本轮情报</h3>
+                    <p id="packSummary" class="panel-note"></p>
+                    <div class="detail-list">
+                        <div class="detail-row">
+                            <span>词书说明</span>
+                            <strong id="bookDescription">基础高频词汇</strong>
+                        </div>
+                        <div class="detail-row">
+                            <span>本地最佳</span>
+                            <strong id="localBestInline">暂无记录</strong>
+                        </div>
+                        <div class="detail-row">
+                            <span>排行榜模式</span>
+                            <strong id="selectedSyncMode">本地优先</strong>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel-card">
+                    <div class="panel-kicker">Recent Runs</div>
+                    <h3>最近成绩</h3>
+                    <div id="recentRuns" class="recent-list"></div>
+                    <div class="panel-actions">
+                        <button id="exportButton" class="ghost-button compact-button" type="button">导出 JSON</button>
+                        <button id="clearHistoryButton" class="ghost-button compact-button danger-button" type="button">清空记录</button>
+                    </div>
+                </article>
+            </aside>
+        </main>
     </div>
 
-    <!-- 底部快捷键栏 -->
-    <div class="keyboard-hint">
-        <div class="keyboard-scroll">
-            <div class="key-item">
-                <span class="key">空格</span>
-                <span class="key-text">开始/下一词</span>
-            </div>
-            <div class="key-item">
-                <span class="key">R</span>
-                <span class="key-text">重新开始</span>
-            </div>
-            <div class="key-item">
-                <span class="key">M</span>
-                <span class="key-text">音乐开关</span>
-            </div>
-            <div class="key-item">
-                <span class="key">S</span>
-                <span class="key-text">音效开关</span>
-            </div>
-            <div class="key-item">
-                <span class="key">L</span>
-                <span class="key-text">排行榜</span>
-            </div>
-            <div class="key-item">
-                <span class="key">H</span>
-                <span class="key-text">历史记录</span>
-            </div>
-            <div class="key-item">
-                <span class="key">P</span>
-                <span class="key-text">个人中心</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- 登录/注册弹窗 -->
-    <div id="authModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-gray-900 border-2 border-cyan-500 rounded-3xl p-8 max-w-md w-full modal-enter">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-white" id="authTitle">账号登录</h2>
-                <button onclick="closeAuthModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
-            </div>
-
-            <!-- 标签切换 -->
-            <div class="flex gap-2 mb-6">
-                <button class="tab-btn active" id="loginTab" onclick="switchAuthTab('login')">登录</button>
-                <button class="tab-btn" id="registerTab" onclick="switchAuthTab('register')">注册</button>
-                <button class="tab-btn" id="resetTab" onclick="switchAuthTab('reset')">找回密码</button>
-            </div>
-
-            <!-- 登录表单 -->
-            <form id="loginForm" class="space-y-4">
+    <div id="profileModal" class="modal-shell" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-head">
                 <div>
-                    <label class="text-gray-300 text-sm mb-1 block">邮箱</label>
-                    <input type="email" id="loginEmail" class="form-input" placeholder="请输入邮箱" required>
+                    <div class="panel-kicker">Profile</div>
+                    <h3>本地玩家资料</h3>
                 </div>
-                <div>
-                    <label class="text-gray-300 text-sm mb-1 block">密码</label>
-                    <input type="password" id="loginPassword" class="form-input" placeholder="请输入密码" required>
-                </div>
-                <button type="submit" class="btn-primary">登录</button>
-            </form>
-
-            <!-- 注册表单 -->
-            <form id="registerForm" class="space-y-4 hidden">
-                <div>
-                    <label class="text-gray-300 text-sm mb-1 block">昵称</label>
-                    <input type="text" id="registerNickname" class="form-input" placeholder="请输入昵称" maxlength="20" required>
-                </div>
-                <div>
-                    <label class="text-gray-300 text-sm mb-1 block">邮箱</label>
-                    <input type="email" id="registerEmail" class="form-input" placeholder="请输入邮箱" required>
-                </div>
-                <div>
-                    <label class="text-gray-300 text-sm mb-1 block">密码</label>
-                    <input type="password" id="registerPassword" class="form-input" placeholder="请输入密码（至少6位）" minlength="6" required>
-                </div>
-                <button type="submit" class="btn-primary">注册账号</button>
-            </form>
-
-            <!-- 密码重置表单 -->
-            <form id="resetForm" class="space-y-4 hidden">
-                <div>
-                    <label class="text-gray-300 text-sm mb-1 block">邮箱</label>
-                    <input type="email" id="resetEmail" class="form-input" placeholder="请输入注册邮箱" required>
-                </div>
-                <p class="text-gray-400 text-sm">我们将发送密码重置链接到您的邮箱</p>
-                <button type="submit" class="btn-primary">发送重置邮件</button>
-            </form>
-
-            <div id="authError" class="mt-4 text-red-400 text-sm text-center hidden"></div>
-            <div id="authSuccess" class="mt-4 text-green-400 text-sm text-center hidden"></div>
-        </div>
-    </div>
-
-    <!-- 个人中心弹窗 -->
-    <div id="profileModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-gray-900 border-2 border-purple-500 rounded-3xl p-8 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col modal-enter">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
-                    个人中心
-                </h2>
-                <button onclick="closeProfileModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                <button class="modal-close" type="button" data-close-modal="profileModal">×</button>
             </div>
 
-            <!-- 用户信息 -->
-            <div class="flex items-center gap-4 mb-8">
-                <div class="user-avatar w-20 h-20 text-2xl" id="profileAvatar">
-                    U
-                </div>
-                <div>
-                    <h3 class="text-2xl font-bold text-white" id="profileNickname">用户</h3>
-                    <p class="text-gray-400" id="profileEmail">user@example.com</p>
-                    <p class="text-gray-500 text-sm mt-1">注册时间：<span id="profileRegisterTime">-</span></p>
-                </div>
-            </div>
+            <div class="modal-stack">
+                <label class="input-shell" for="profileNameInput">
+                    <span>昵称</span>
+                    <input id="profileNameInput" class="typing-input modal-input" type="text" maxlength="20" placeholder="输入你的昵称">
+                </label>
 
-            <!-- 数据统计 -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-gray-500 text-xs uppercase mb-1">总场次</div>
-                    <div id="profileTotalGames" class="text-2xl font-bold text-cyan-400">0</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-gray-500 text-xs uppercase mb-1">最高WPM</div>
-                    <div id="profileBestWpm" class="text-2xl font-bold text-green-400">0</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-gray-500 text-xs uppercase mb-1">平均准确率</div>
-                    <div id="profileAvgAcc" class="text-2xl font-bold text-purple-400">0%</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-gray-500 text-xs uppercase mb-1">总单词数</div>
-                    <div id="profileTotalWords" class="text-2xl font-bold text-yellow-400">0</div>
-                </div>
-            </div>
+                <button id="saveProfileButton" class="primary-button" type="button">保存昵称</button>
 
-            <!-- 最佳记录 -->
-            <div class="mb-6">
-                <h4 class="text-gray-300 font-bold mb-3">最佳记录</h4>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="text-gray-500 text-xs uppercase tracking-wider">
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <span>总场次</span>
+                        <strong id="profileRuns">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>最佳 WPM</span>
+                        <strong id="profileBestWpm">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>平均准确率</span>
+                        <strong id="profileAverageAccuracy">0%</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>累计词数</span>
+                        <strong id="profileWords">0</strong>
+                    </div>
+                </div>
+
+                <div class="table-shell">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <th class="pb-2">词书</th>
-                                <th class="pb-2 text-right">WPM</th>
-                                <th class="pb-2 text-right">准确率</th>
-                                <th class="pb-2 text-right">日期</th>
+                                <th>词书</th>
+                                <th>最佳 WPM</th>
+                                <th>准确率</th>
+                                <th>评级</th>
                             </tr>
                         </thead>
-                        <tbody id="profileBestRecords" class="text-sm">
-                            <tr>
-                                <td colspan="4" class="text-center py-4 text-gray-500">暂无记录</td>
-                            </tr>
-                        </tbody>
+                        <tbody id="profileBestRows"></tbody>
                     </table>
                 </div>
             </div>
-
-            <!-- 账号操作 -->
-            <div class="mt-auto pt-4 border-t border-gray-800 flex gap-3">
-                <button onclick="updateNickname()" class="btn-secondary flex-1">修改昵称</button>
-                <button onclick="logout()" class="px-6 py-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/50 hover:bg-red-500/30 transition-all font-bold">
-                    退出登录
-                </button>
-            </div>
         </div>
     </div>
 
-    <!-- 排行榜弹窗 -->
-    <div id="leaderboardModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-gray-900 border-2 border-cyan-500 rounded-3xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col modal-enter">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-                    🏆 排行榜
-                </h2>
-                <button onclick="closeLeaderboard()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+    <div id="leaderboardModal" class="modal-shell" aria-hidden="true">
+        <div class="modal-panel modal-panel-wide">
+            <div class="modal-head">
+                <div>
+                    <div class="panel-kicker">Leaderboard</div>
+                    <h3>排行榜</h3>
+                </div>
+                <button class="modal-close" type="button" data-close-modal="leaderboardModal">×</button>
             </div>
 
-            <!-- 排行榜类型切换 -->
-            <div class="flex gap-2 mb-4">
-                <button onclick="switchLeaderboardType('global')" class="lb-type-btn px-4 py-2 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500 text-sm active" data-type="global">
-                    🌐 全球排行
-                </button>
-                <button onclick="switchLeaderboardType('local')" class="lb-type-btn px-4 py-2 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm" data-type="local">
-                    💾 本地记录
-                </button>
-            </div>
+            <div class="modal-stack">
+                <div class="toggle-row">
+                    <div id="leaderboardTypeControls" class="chip-grid compact-grid"></div>
+                    <div id="leaderboardFilterControls" class="chip-grid compact-grid"></div>
+                </div>
 
-            <!-- 筛选器 -->
-            <div class="flex gap-2 mb-4 overflow-x-auto pb-2">
-                <button onclick="filterLeaderboard('all')" class="leaderboard-filter px-4 py-1 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500 text-sm active" data-filter="all">全部</button>
-                <button onclick="filterLeaderboard('cet4')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-blue-500 hover:text-blue-400" data-filter="cet4">四级</button>
-                <button onclick="filterLeaderboard('cet6')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-purple-500 hover:text-purple-400" data-filter="cet6">六级</button>
-                <button onclick="filterLeaderboard('ielts')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-red-500 hover:text-red-400" data-filter="ielts">雅思</button>
-                <button onclick="filterLeaderboard('toefl')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-orange-500 hover:text-orange-400" data-filter="toefl">托福</button>
-                <button onclick="filterLeaderboard('programming')" class="leaderboard-filter px-4 py-1 rounded-full bg-gray-800 text-gray-400 border border-gray-600 text-sm hover:border-cyan-500 hover:text-cyan-400" data-filter="programming">编程</button>
-            </div>
+                <div class="detail-list">
+                    <div class="detail-row">
+                        <span>我的最佳成绩</span>
+                        <strong id="personalBestText">暂无记录</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>当前状态</span>
+                        <strong id="leaderboardStatusText">准备加载</strong>
+                    </div>
+                </div>
 
-            <!-- 排行榜列表 -->
-            <div class="overflow-y-auto flex-1 pr-2" style="max-height: 50vh;">
-                <table class="w-full text-left">
-                    <thead class="text-gray-500 text-xs uppercase tracking-wider sticky top-0 bg-gray-900">
-                        <tr>
-                            <th class="pb-3 pl-2">排名</th>
-                            <th class="pb-3">玩家</th>
-                            <th class="pb-3">词书</th>
-                            <th class="pb-3 text-right">WPM</th>
-                            <th class="pb-3 text-right">准确率</th>
-                            <th class="pb-3 text-right">日期</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboardBody" class="text-sm">
-                        <tr>
-                            <td colspan="6" class="text-center py-8 text-gray-500">加载中...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- 我的记录 -->
-            <div class="mt-4 pt-4 border-t border-gray-800">
-                <div class="text-gray-400 text-xs uppercase tracking-wider mb-2">我的最佳记录</div>
-                <div id="personalBest" class="text-sm text-gray-300">
-                    暂无记录
+                <div class="table-shell">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>排名</th>
+                                <th>玩家</th>
+                                <th>词书</th>
+                                <th>WPM</th>
+                                <th>准确率</th>
+                                <th>日期</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardRows"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 历史记录弹窗 -->
-    <div id="historyModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-gray-900 border-2 border-pink-500 rounded-3xl p-6 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col modal-enter">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-500">
-                    📊 打字历史
-                </h2>
-                <button onclick="closeHistory()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+    <div id="historyModal" class="modal-shell" aria-hidden="true">
+        <div class="modal-panel modal-panel-wide">
+            <div class="modal-head">
+                <div>
+                    <div class="panel-kicker">History</div>
+                    <h3>训练历史</h3>
+                </div>
+                <button class="modal-close" type="button" data-close-modal="historyModal">×</button>
             </div>
 
-            <!-- 统计概览 -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-gray-500 text-xs uppercase mb-1">总场次</div>
-                    <div id="totalGames" class="text-2xl font-bold text-cyan-400">0</div>
+            <div class="modal-stack">
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <span>总场次</span>
+                        <strong id="historyRuns">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>最佳 WPM</span>
+                        <strong id="historyBestWpm">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>平均准确率</span>
+                        <strong id="historyAverageAccuracy">0%</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>累计词数</span>
+                        <strong id="historyWordCount">0</strong>
+                    </div>
                 </div>
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-gray-500 text-xs uppercase mb-1">最高WPM</div>
-                    <div id="bestWpm" class="text-2xl font-bold text-green-400">0</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-gray-500 text-xs uppercase mb-1">平均准确率</div>
-                    <div id="avgAccuracy" class="text-2xl font-bold text-purple-400">0%</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 text-center">
-                    <div class="text-gray-500 text-xs uppercase mb-1">总单词数</div>
-                    <div id="totalWords" class="text-2xl font-bold text-yellow-400">0</div>
-                </div>
-            </div>
 
-            <!-- 历史列表 -->
-            <div class="overflow-y-auto flex-1 pr-2" style="max-height: 40vh;">
-                <table class="w-full text-left">
-                    <thead class="text-gray-500 text-xs uppercase tracking-wider sticky top-0 bg-gray-900">
-                        <tr>
-                            <th class="pb-3">日期</th>
-                            <th class="pb-3">词书</th>
-                            <th class="pb-3 text-right">WPM</th>
-                            <th class="pb-3 text-right">准确率</th>
-                            <th class="pb-3 text-right">评级</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyBody" class="text-sm">
-                        <tr>
-                            <td colspan="5" class="text-center py-8 text-gray-500">暂无记录</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="mt-4 flex gap-2">
-                <button onclick="clearHistory()" class="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg border border-red-500/50 hover:bg-red-500/30 transition-all text-sm">
-                    🗑️ 清空历史
-                </button>
-                <button onclick="exportHistory()" class="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg border border-green-500/50 hover:bg-green-500/30 transition-all text-sm">
-                    📤 导出数据
-                </button>
+                <div class="table-shell">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>玩家</th>
+                                <th>词书</th>
+                                <th>难度</th>
+                                <th>WPM</th>
+                                <th>准确率</th>
+                                <th>评级</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyRows"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 游客用户名弹窗 -->
-    <div id="usernameModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-gray-900 border-2 border-purple-500 rounded-3xl p-8 max-w-md w-full modal-enter text-center">
-            <div class="text-5xl mb-4">👾</div>
-            <h2 class="text-2xl font-bold text-white mb-2">设置玩家名称</h2>
-            <p class="text-gray-400 mb-6">输入你的名字，挑战全球排行榜！</p>
-            
-            <input type="text" id="usernameInput" class="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white text-center mb-4 focus:border-cyan-500 focus:outline-none" placeholder="输入昵称" maxlength="20">
-            
-            <button onclick="saveUsername()" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all">
-                开始冒险
-            </button>
-        </div>
-    </div>
-
-    <!-- 通关弹窗 -->
-    <div id="victoryModal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4 victory-overlay">
-        <div class="bg-gray-900 border-2 border-cyan-500 rounded-3xl p-8 max-w-md w-full text-center relative overflow-hidden shadow-2xl">
-            <div id="starsContainer" class="absolute inset-0 pointer-events-none"></div>
-            
-            <div class="text-6xl mb-4 animate-bounce">🏆</div>
-            <h2 class="text-4xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">关卡完成!</h2>
-            <p class="text-gray-400 mb-6" id="victoryMessage">太棒了！</p>
-            
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="stat-card rounded-xl p-4 border border-gray-700">
-                    <div class="text-gray-400 text-sm mb-1">最终WPM</div>
-                    <div class="text-4xl font-bold text-cyan-400 font-mono" id="finalWPM">0</div>
+    <div id="resultModal" class="modal-shell" aria-hidden="true">
+        <div class="modal-panel">
+            <div class="modal-head">
+                <div>
+                    <div class="panel-kicker">Run Complete</div>
+                    <h3>本轮结束</h3>
                 </div>
-                <div class="stat-card rounded-xl p-4 border border-gray-700">
-                    <div class="text-gray-400 text-sm mb-1">准确率</div>
-                    <div class="text-4xl font-bold text-purple-400 font-mono" id="finalAcc">0%</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 border border-gray-700">
-                    <div class="text-gray-400 text-sm mb-1">最高连击</div>
-                    <div class="text-4xl font-bold text-yellow-400 font-mono" id="finalCombo">0</div>
-                </div>
-                <div class="stat-card rounded-xl p-4 border border-gray-700">
-                    <div class="text-gray-400 text-sm mb-1">评级</div>
-                    <div class="text-4xl font-bold text-green-400" id="finalRank">S</div>
-                </div>
+                <button class="modal-close" type="button" data-close-modal="resultModal">×</button>
             </div>
 
-            <div class="flex gap-3">
-                <button onclick="showLeaderboardFromVictory()" class="flex-1 py-3 bg-gray-800 rounded-xl border border-gray-600 hover:border-pink-500 hover:text-pink-400 transition-all font-bold">
-                    🏆 排行榜
-                </button>
-                <button onclick="submitAndNext()" class="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-bold text-white hover:shadow-lg hover:shadow-cyan-500/50 transition-all transform hover:scale-105 text-lg">
-                    再来一局
-                </button>
+            <div class="modal-stack">
+                <div class="result-rank" id="resultRank">A</div>
+                <p id="resultMessage" class="result-message">节奏很稳，继续把速度推上去。</p>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <span>WPM</span>
+                        <strong id="resultWpm">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>准确率</span>
+                        <strong id="resultAccuracy">0%</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>最高连击</span>
+                        <strong id="resultCombo">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>词数</span>
+                        <strong id="resultWordCount">0</strong>
+                    </div>
+                </div>
+
+                <p id="resultSyncStatus" class="panel-note">成绩已写入本地历史。</p>
+
+                <div class="action-row">
+                    <button id="playAgainButton" class="primary-button" type="button">再来一轮</button>
+                    <button id="resultLeaderboardButton" class="ghost-button" type="button">查看排行榜</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 脚本加载顺序不可修改 -->
     <script src="js/vocabulary.js"></script>
     <script src="js/firebase-config.js"></script>
     <script src="js/leaderboard.js"></script>
-    <script src="js/auth.js"></script>
-
-    <script>
-        // ==================== 配置 ====================
-        let currentDifficulty = 'normal';
-        let wordCount = { easy: 10, normal: 20, hard: 30, daily: 25 };
-        let leaderboardType = 'global';
-
-        // ==================== 音频系统 ====================
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
-        let soundEnabled = true;
-        let musicEnabled = true;
-        let musicInterval = null;
-        let currentBook = 'cet4';
-
-        // 超级马里奥风格8-bit背景音乐
-        const musicNotes = [
-            { freq: 659.25, duration: 150 }, { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 },
-            { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 523.25, duration: 150 },
-            { freq: 659.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 783.99, duration: 150 },
-            { freq: 0, duration: 300 }, { freq: 392.00, duration: 150 }, { freq: 0, duration: 300 },
-            { freq: 523.25, duration: 150 }, { freq: 0, duration: 150 }, { freq: 392.00, duration: 150 },
-            { freq: 0, duration: 150 }, { freq: 329.63, duration: 150 }, { freq: 0, duration: 150 },
-            { freq: 440.00, duration: 150 }, { freq: 493.88, duration: 150 }, { freq: 466.16, duration: 150 },
-            { freq: 440.00, duration: 150 }, { freq: 0, duration: 150 }, { freq: 349.23, duration: 150 },
-            { freq: 392.00, duration: 150 }, { freq: 0, duration: 150 }, { freq: 329.63, duration: 150 },
-            { freq: 0, duration: 150 }, { freq: 293.66, duration: 150 }, { freq: 349.23, duration: 150 },
-            { freq: 0, duration: 150 }, { freq: 261.63, duration: 150 },
-        ];
-
-        let musicIndex = 0;
-
-        // 初始化音频
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new AudioContext();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }
-
-        // 播放音效
-        function playSound(type) {
-            if (!soundEnabled || !audioCtx) return;
-
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            const now = audioCtx.currentTime;
-
-            switch(type) {
-                case 'key':
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(800 + Math.random() * 100, now);
-                    osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
-                    gainNode.gain.setValueAtTime(0.1, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-                    osc.start(now);
-                    osc.stop(now + 0.05);
-                    break;
-
-                case 'jump':
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(150, now);
-                    osc.frequency.linearRampToValueAtTime(300, now + 0.1);
-                    osc.frequency.linearRampToValueAtTime(120, now + 0.2);
-                    gainNode.gain.setValueAtTime(0.15, now);
-                    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
-                    osc.start(now);
-                    osc.stop(now + 0.2);
-                    break;
-
-                case 'coin':
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(987.77, now);
-                    osc.frequency.setValueAtTime(1318.51, now + 0.08);
-                    gainNode.gain.setValueAtTime(0.1, now);
-                    gainNode.gain.setValueAtTime(0.1, now + 0.08);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-                    osc.start(now);
-                    osc.stop(now + 0.4);
-                    break;
-
-                case 'error':
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(100, now);
-                    osc.frequency.linearRampToValueAtTime(50, now + 0.2);
-                    gainNode.gain.setValueAtTime(0.2, now);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-                    osc.start(now);
-                    osc.stop(now + 0.2);
-                    break;
-
-                case 'powerup':
-                    osc.type = 'square';
-                    const notes = [523.25, 659.25, 783.99, 1046.50];
-                    notes.forEach((freq, i) => {
-                        osc.frequency.setValueAtTime(freq, now + i * 0.1);
-                    });
-                    gainNode.gain.setValueAtTime(0.15, now);
-                    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.4);
-                    osc.start(now);
-                    osc.stop(now + 0.4);
-                    break;
-
-                case 'victory':
-                    playVictoryMusic();
-                    break;
-            }
-        }
-
-        // 播放背景音乐
-        function playBackgroundMusic() {
-            if (!musicEnabled || !audioCtx) return;
-            
-            const note = musicNotes[musicIndex];
-            if (note.freq > 0) {
-                const osc = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                osc.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(note.freq, audioCtx.currentTime);
-                gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + note.duration / 1000);
-                
-                osc.start(audioCtx.currentTime);
-                osc.stop(audioCtx.currentTime + note.duration / 1000);
-            }
-            
-            musicIndex = (musicIndex + 1) % musicNotes.length;
-        }
-
-        // 开始背景音乐循环
-        function startMusic() {
-            if (musicInterval) clearInterval(musicInterval);
-            musicInterval = setInterval(playBackgroundMusic, 150);
-        }
-
-        // 停止背景音乐
-        function stopMusic() {
-            if (musicInterval) {
-                clearInterval(musicInterval);
-                musicInterval = null;
-            }
-        }
-
-        // 通关胜利音乐
-        function playVictoryMusic() {
-            if (!audioCtx) return;
-            
-            const victoryNotes = [
-                { f: 523.25, d: 0.1 }, { f: 523.25, d: 0.1 }, { f: 523.25, d: 0.1 },
-                { f: 659.25, d: 0.3 }, { f: 783.99, d: 0.1 }, { f: 783.99, d: 0.1 },
-                { f: 783.99, d: 0.1 }, { f: 880.00, d: 0.3 }
-            ];
-            
-            let time = audioCtx.currentTime;
-            victoryNotes.forEach(note => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(note.f, time);
-                gain.gain.setValueAtTime(0.15, time);
-                gain.gain.exponentialRampToValueAtTime(0.01, time + note.d);
-                
-                osc.start(time);
-                osc.stop(time + note.d);
-                time += note.d;
-            });
-        }
-
-        // ==================== 游戏逻辑 ====================
-        let words = [];
-        let currentWordIndex = 0;
-        let currentCharIndex = 0;
-        let isPlaying = false;
-        let startTime = null;
-        let errorCount = 0;
-        let totalChars = 0;
-        let maxCombo = 0;
-        let currentCombo = 0;
-        let finalScoreData = null;
-
-        // 难度设置
-        function setDifficulty(difficulty) {
-            currentDifficulty = difficulty;
-            
-            document.querySelectorAll('.difficulty-btn').forEach(btn => {
-                btn.classList.remove('active', 'scale-105');
-            });
-            
-            const activeBtn = document.querySelector(`[data-difficulty="${difficulty}"]`);
-            activeBtn.classList.add('active', 'scale-105');
-            
-            if (!isPlaying) {
-                resetGame();
-            }
-        }
-
-        // 检查并显示用户名设置
-        function checkUsername() {
-            const saved = leaderboard.getUsername();
-            if (!saved || saved.startsWith('匿名玩家_')) {
-                document.getElementById('usernameModal').classList.remove('hidden');
-                document.getElementById('usernameInput').focus();
-            }
-        }
-
-        function saveUsername() {
-            const input = document.getElementById('usernameInput');
-            const name = input.value.trim();
-            if (name) {
-                leaderboard.setUsername(name);
-                document.getElementById('usernameModal').classList.add('hidden');
-            }
-        }
-
-        function selectBook(bookKey) {
-            currentBook = bookKey;
-            
-            document.querySelectorAll('.book-btn').forEach(btn => {
-                btn.classList.remove('active');
-                btn.style.boxShadow = 'none';
-            });
-            
-            const activeBtn = document.querySelector(`[data-book="${bookKey}"]`);
-            activeBtn.classList.add('active');
-            
-            if (!isPlaying) {
-                resetGame();
-            }
-        }
-
-        // 生成每日挑战单词
-        function getDailyChallenge() {
-            const today = new Date().toDateString();
-            const seed = today.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-            
-            // 合并所有词书
-            const allWords = [];
-            Object.keys(vocabularyBooks).forEach(key => {
-                vocabularyBooks[key].forEach(word => {
-                    allWords.push({ ...word, book: key });
-                });
-            });
-            
-            // 伪随机选择
-            const selected = [];
-            for (let i = 0; i < wordCount.daily; i++) {
-                const index = (seed * (i + 1)) % allWords.length;
-                selected.push(allWords[index]);
-            }
-            
-            return selected;
-        }
-
-        function generateWords() {
-            if (currentDifficulty === 'daily') {
-                words = getDailyChallenge();
-                return;
-            }
-            
-            const book = vocabularyBooks[currentBook];
-            words = [];
-            const shuffled = [...book].sort(() => Math.random() - 0.5);
-            const count = wordCount[currentDifficulty];
-            for (let i = 0; i < count; i++) {
-                words.push(shuffled[i % shuffled.length]);
-            }
-        }
-
-        function renderTrack() {
-            const track = document.getElementById('textTrack');
-            track.innerHTML = '';
-            
-            words.forEach((wordObj, wordIdx) => {
-                const wordDiv = document.createElement('div');
-                wordDiv.className = 'word';
-                wordDiv.id = `word-${wordIdx}`;
-                
-                const trans = document.createElement('div');
-                trans.className = 'translation';
-                trans.textContent = wordObj.cn;
-                wordDiv.appendChild(trans);
-                
-                wordObj.en.split('').forEach((char, charIdx) => {
-                    const charSpan = document.createElement('span');
-                    charSpan.className = 'char pending text-4xl font-bold';
-                    charSpan.textContent = char;
-                    charSpan.id = `char-${wordIdx}-${charIdx}`;
-                    
-                    if (wordIdx === 0 && charIdx === 0) {
-                        charSpan.classList.add('cursor', 'text-cyan-400');
-                        charSpan.classList.remove('pending');
-                    }
-                    
-                    wordDiv.appendChild(charSpan);
-                });
-                
-                track.appendChild(wordDiv);
-            });
-            
-            updateProgress();
-        }
-
-        function scrollToCurrent() {
-            const currentWord = document.getElementById(`word-${currentWordIndex}`);
-            if (!currentWord) return;
-            
-            const track = document.getElementById('textTrack');
-            const container = track.parentElement;
-            const containerWidth = container.offsetWidth;
-            
-            const wordOffset = currentWord.offsetLeft;
-            const centerOffset = containerWidth / 2 - 150;
-            
-            track.style.transform = `translateX(${centerOffset - wordOffset}px)`;
-            
-            const transDiv = document.getElementById('currentTranslation');
-            if (currentWordIndex < words.length) {
-                transDiv.textContent = words[currentWordIndex].cn;
-                transDiv.style.opacity = '1';
-                transDiv.style.transform = 'translateY(0)';
-            }
-        }
-
-        function createParticle(x, y, color) {
-            for (let i = 0; i < 6; i++) {
-                const p = document.createElement('div');
-                p.className = 'particle';
-                p.style.left = x + 'px';
-                p.style.top = y + 'px';
-                p.style.width = (4 + Math.random() * 4) + 'px';
-                p.style.height = p.style.width;
-                p.style.background = color;
-                p.style.setProperty('--tx', (Math.random() - 0.5) * 80 + 'px');
-                p.style.setProperty('--ty', (Math.random() - 0.5) * 80 + 'px');
-                document.body.appendChild(p);
-                setTimeout(() => p.remove(), 800);
-            }
-        }
-
-        function handleInput(e) {
-            // 全局快捷键
-            if (!isPlaying && e.target.id !== 'usernameInput' && e.target.id !== 'loginEmail' && e.target.id !== 'registerEmail' && e.target.id !== 'resetEmail' && e.target.id !== 'registerPassword' && e.target.id !== 'loginPassword' && e.target.id !== 'registerNickname') {
-                if (e.key.toLowerCase() === 'r') {
-                    resetGame();
-                    return;
-                }
-                if (e.key.toLowerCase() === 'm') {
-                    toggleMusic();
-                    return;
-                }
-                if (e.key.toLowerCase() === 's') {
-                    toggleSound();
-                    return;
-                }
-                if (e.key.toLowerCase() === 'l') {
-                    showLeaderboard();
-                    return;
-                }
-                if (e.key.toLowerCase() === 'h') {
-                    showHistory();
-                    return;
-                }
-                if (e.key.toLowerCase() === 'p') {
-                    showProfileModal();
-                    return;
-                }
-            }
-
-            if (!isPlaying) {
-                if (e.code === 'Space') {
-                    e.preventDefault();
-                    startGame();
-                }
-                return;
-            }
-
-            const currentWord = words[currentWordIndex];
-            const wordEl = document.getElementById(`word-${currentWordIndex}`);
-
-            if (e.key === 'Backspace') {
-                if (currentCharIndex > 0) {
-                    currentCharIndex--;
-                    updateChar(currentWordIndex, currentCharIndex, 'pending');
-                    currentCombo = 0;
-                    updateCombo();
-                }
-                return;
-            }
-
-            if (e.key === ' ') {
-                e.preventDefault();
-                if (currentCharIndex === currentWord.en.length) {
-                    wordEl.classList.add('completed');
-                    wordEl.classList.remove('current');
-                    playSound('coin');
-                    
-                    currentCombo++;
-                    if (currentCombo > maxCombo) maxCombo = currentCombo;
-                    updateCombo();
-                    
-                    currentWordIndex++;
-                    currentCharIndex = 0;
-                    
-                    if (currentWordIndex < words.length) {
-                        updateChar(currentWordIndex, 0, 'current');
-                        scrollToCurrent();
-                    } else {
-                        completeGame();
-                    }
-                } else {
-                    wordEl.classList.add('shake');
-                    setTimeout(() => wordEl.classList.remove('shake'), 200);
-                    playSound('error');
-                    currentCombo = 0;
-                    updateCombo();
-                }
-                return;
-            }
-
-            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-                if (currentCharIndex >= currentWord.en.length) return;
-                
-                const expected = currentWord.en[currentCharIndex];
-                const actual = e.key;
-                const charEl = document.getElementById(`char-${currentWordIndex}-${currentCharIndex}`);
-                const rect = charEl.getBoundingClientRect();
-                
-                if (actual === expected) {
-                    playSound('key');
-                    updateChar(currentWordIndex, currentCharIndex, 'correct');
-                    createParticle(rect.left + rect.width/2, rect.top + rect.height/2, '#00ff88');
-                    currentCharIndex++;
-                    totalChars++;
-                    
-                    if (currentCharIndex === currentWord.en.length) {
-                        wordEl.classList.add('current');
-                        document.getElementById('currentTranslation').innerHTML = 
-                            `<span class="text-yellow-400">按空格继续 →</span>`;
-                    }
-                } else {
-                    playSound('error');
-                    errorCount++;
-                    charEl.classList.add('wrong');
-                    wordEl.classList.add('shake');
-                    setTimeout(() => wordEl.classList.remove('shake'), 200);
-                    createParticle(rect.left + rect.width/2, rect.top + rect.height/2, '#ff4444');
-                    currentCombo = 0;
-                    updateCombo();
-                }
-                
-                updateStats();
-            }
-        }
-
-        function updateChar(wordIdx, charIdx, status) {
-            const charEl = document.getElementById(`char-${wordIdx}-${charIdx}`);
-            if (!charEl) return;
-            
-            charEl.className = 'char text-4xl font-bold transition-all';
-            
-            switch(status) {
-                case 'correct':
-                    charEl.classList.add('correct');
-                    break;
-                case 'current':
-                    charEl.classList.add('cursor', 'text-cyan-400');
-                    break;
-                case 'pending':
-                    charEl.classList.add('pending');
-                    break;
-            }
-            
-            if (status === 'current' && charIdx > 0) {
-                const prev = document.getElementById(`char-${wordIdx}-${charIdx-1}`);
-                if (prev) prev.classList.remove('cursor');
-            }
-        }
-
-        function updateStats() {
-            const accuracy = totalChars === 0 ? 100 : Math.round(((totalChars - errorCount) / totalChars) * 100);
-            document.getElementById('accuracy').textContent = accuracy + '%';
-            
-            if (startTime) {
-                const minutes = (Date.now() - startTime) / 60000;
-                const wpm = Math.round((currentWordIndex / minutes)) || 0;
-                document.getElementById('wpm').textContent = wpm;
-            }
-            
-            updateProgress();
-        }
-
-        function updateCombo() {
-            const comboEl = document.getElementById('combo');
-            comboEl.textContent = currentCombo;
-            if (currentCombo > 5) {
-                comboEl.classList.add('text-orange-400');
-                comboEl.style.transform = 'scale(1.2)';
-                setTimeout(() => {
-                    comboEl.style.transform = 'scale(1)';
-                }, 200);
-            } else {
-                comboEl.classList.remove('text-orange-400');
-            }
-        }
-
-        function updateProgress() {
-            const progress = (currentWordIndex / words.length) * 100;
-            document.getElementById('progress-bar').style.width = progress + '%';
-            document.getElementById('progress-text').textContent = `${currentWordIndex}/${words.length}`;
-        }
-
-        function startGame() {
-            checkUsername();
-            initAudio();
-            isPlaying = true;
-            startTime = Date.now();
-            
-            if (musicEnabled) startMusic();
-            
-            const overlay = document.getElementById('startOverlay');
-            overlay.style.opacity = '0';
-            setTimeout(() => overlay.style.display = 'none', 300);
-            
-            document.getElementById('inputField').focus();
-            scrollToCurrent();
-            playSound('powerup');
-        }
-
-        function completeGame() {
-            isPlaying = false;
-            stopMusic();
-            playSound('victory');
-            
-            const minutes = (Date.now() - startTime) / 60000;
-            const wpm = Math.round((words.length / minutes));
-            const accuracy = Math.round(((totalChars - errorCount) / totalChars) * 100);
-            
-            let rank = 'C';
-            let message = '继续加油！';
-            if (wpm > 100 && accuracy > 95) { rank = 'SSS'; message = '神级操作！'; }
-            else if (wpm > 80 && accuracy > 90) { rank = 'S'; message = '完美通关！'; }
-            else if (wpm > 60 && accuracy > 85) { rank = 'A'; message = '非常出色！'; }
-            else if (wpm > 40 && accuracy > 80) { rank = 'B'; message = '表现不错！'; }
-            
-            finalScoreData = {
-                wpm: wpm,
-                accuracy: accuracy,
-                book: currentBook,
-                combo: maxCombo,
-                rank: rank,
-                difficulty: currentDifficulty,
-                wordCount: words.length
-            };
-            
-            // 保存到本地历史
-            saveToLocalHistory(finalScoreData);
-            
-            document.getElementById('finalWPM').textContent = wpm;
-            document.getElementById('finalAcc').textContent = accuracy + '%';
-            document.getElementById('finalCombo').textContent = maxCombo;
-            document.getElementById('finalRank').textContent = rank;
-            document.getElementById('victoryMessage').textContent = message;
-            
-            const starsContainer = document.getElementById('starsContainer');
-            starsContainer.innerHTML = '';
-            for (let i = 0; i < 10; i++) {
-                setTimeout(() => {
-                    const star = document.createElement('div');
-                    star.className = 'star';
-                    star.textContent = '⭐';
-                    star.style.left = Math.random() * 100 + '%';
-                    star.style.top = Math.random() * 100 + '%';
-                    starsContainer.appendChild(star);
-                }, i * 100);
-            }
-            
-            document.getElementById('victoryModal').classList.remove('hidden');
-        }
-
-        async function submitAndNext() {
-            if (finalScoreData) {
-                await leaderboard.submitScore(finalScoreData);
-            }
-            closeVictory();
-        }
-
-        function closeVictory() {
-            document.getElementById('victoryModal').classList.add('hidden');
-            resetGame();
-        }
-
-        function showLeaderboardFromVictory() {
-            document.getElementById('victoryModal').classList.add('hidden');
-            showLeaderboard();
-        }
-
-        function resetGame() {
-            isPlaying = false;
-            stopMusic();
-            currentWordIndex = 0;
-            currentCharIndex = 0;
-            errorCount = 0;
-            totalChars = 0;
-            currentCombo = 0;
-            maxCombo = 0;
-            startTime = null;
-            finalScoreData = null;
-            
-            document.getElementById('wpm').textContent = '0';
-            document.getElementById('accuracy').textContent = '100%';
-            document.getElementById('combo').textContent = '0';
-            document.getElementById('currentTranslation').textContent = '准备开始...';
-            document.getElementById('currentTranslation').style.opacity = '0';
-            
-            const overlay = document.getElementById('startOverlay');
-            overlay.style.display = 'flex';
-            setTimeout(() => overlay.style.opacity = '1', 10);
-            
-            generateWords();
-            renderTrack();
-        }
-
-        function toggleMusic() {
-            musicEnabled = !musicEnabled;
-            const btn = document.getElementById('musicBtn');
-            const icon = document.getElementById('musicIcon');
-            
-            if (musicEnabled) {
-                icon.textContent = '🎵';
-                btn.classList.remove('opacity-50');
-                if (isPlaying) startMusic();
-            } else {
-                icon.textContent = '🔇';
-                btn.classList.add('opacity-50');
-                stopMusic();
-            }
-        }
-
-        function toggleSound() {
-            soundEnabled = !soundEnabled;
-            const btn = document.getElementById('soundBtn');
-            const icon = document.getElementById('soundIcon');
-            
-            if (soundEnabled) {
-                icon.textContent = '🔊';
-                btn.classList.remove('opacity-50');
-            } else {
-                icon.textContent = '🔇';
-                btn.classList.add('opacity-50');
-            }
-        }
-
-        // ==================== 本地历史记录 ====================
-        function saveToLocalHistory(scoreData) {
-            const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
-            history.unshift({
-                ...scoreData,
-                date: new Date().toLocaleDateString(),
-                timestamp: Date.now()
-            });
-            
-            // 只保留最近100条
-            if (history.length > 100) {
-                history.splice(100);
-            }
-            
-            localStorage.setItem('typequest_history', JSON.stringify(history));
-        }
-
-        function showHistory() {
-            document.getElementById('historyModal').classList.remove('hidden');
-            loadHistory();
-        }
-
-        function closeHistory() {
-            document.getElementById('historyModal').classList.add('hidden');
-        }
-
-        function loadHistory() {
-            const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
-            const tbody = document.getElementById('historyBody');
-            
-            if (history.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">暂无记录</td></tr>';
-                document.getElementById('totalGames').textContent = '0';
-                document.getElementById('bestWpm').textContent = '0';
-                document.getElementById('avgAccuracy').textContent = '0%';
-                document.getElementById('totalWords').textContent = '0';
-                return;
-            }
-            
-            // 更新统计
-            document.getElementById('totalGames').textContent = history.length;
-            document.getElementById('bestWpm').textContent = Math.max(...history.map(h => h.wpm));
-            const avgAcc = Math.round(history.reduce((sum, h) => sum + h.accuracy, 0) / history.length);
-            document.getElementById('avgAccuracy').textContent = avgAcc + '%';
-            document.getElementById('totalWords').textContent = history.reduce((sum, h) => sum + (h.wordCount || 0), 0);
-            
-            const bookColors = {
-                cet4: 'text-blue-400',
-                cet6: 'text-purple-400',
-                ielts: 'text-red-400',
-                toefl: 'text-orange-400',
-                gre: 'text-green-400',
-                programming: 'text-cyan-400',
-                business: 'text-amber-400',
-                academic: 'text-emerald-400'
-            };
-            
-            const rankColors = {
-                'SSS': 'text-yellow-400',
-                'S': 'text-green-400',
-                'A': 'text-cyan-400',
-                'B': 'text-purple-400',
-                'C': 'text-gray-400'
-            };
-            
-            tbody.innerHTML = history.map(record => `
-                <tr class="border-b border-gray-800 hover:bg-gray-800/50">
-                    <td class="py-2 text-gray-400">${record.date}</td>
-                    <td class="py-2 ${bookColors[record.book] || 'text-gray-400'}">${(record.book || 'unknown').toUpperCase()}</td>
-                    <td class="py-2 text-right font-mono text-cyan-400">${record.wpm}</td>
-                    <td class="py-2 text-right font-mono text-purple-400">${record.accuracy}%</td>
-                    <td class="py-2 text-right font-bold ${rankColors[record.rank] || 'text-gray-400'}">${record.rank || '-'}</td>
-                </tr>
-            `).join('');
-        }
-
-        function clearHistory() {
-            if (confirm('确定要清空所有历史记录吗？')) {
-                localStorage.removeItem('typequest_history');
-                loadHistory();
-            }
-        }
-
-        function exportHistory() {
-            const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
-            const dataStr = JSON.stringify(history, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `typequest-history-${new Date().toLocaleDateString()}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        // ==================== 排行榜功能 ====================
-        let currentFilter = 'all';
-
-        function switchLeaderboardType(type) {
-            leaderboardType = type;
-            
-            document.querySelectorAll('.lb-type-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500');
-                btn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-600');
-            });
-            
-            const activeBtn = document.querySelector(`[data-type="${type}"]`);
-            activeBtn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-600');
-            activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500', 'active');
-            
-            loadLeaderboard();
-        }
-
-        function showLeaderboard() {
-            document.getElementById('leaderboardModal').classList.remove('hidden');
-            loadLeaderboard();
-            loadPersonalBest();
-        }
-
-        function closeLeaderboard() {
-            document.getElementById('leaderboardModal').classList.add('hidden');
-        }
-
-        function filterLeaderboard(book) {
-            currentFilter = book;
-            
-            document.querySelectorAll('.leaderboard-filter').forEach(btn => {
-                btn.classList.remove('active', 'bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500');
-                btn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-600');
-            });
-            
-            const activeBtn = document.querySelector(`[data-filter="${book}"]`);
-            activeBtn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-600');
-            activeBtn.classList.add('bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500', 'active');
-            
-            loadLeaderboard();
-        }
-
-        async function loadLeaderboard() {
-            const tbody = document.getElementById('leaderboardBody');
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">加载中...</td></tr>';
-            
-            let data = [];
-            
-            if (leaderboardType === 'local') {
-                // 本地排行榜
-                const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
-                const username = leaderboard.getUsername();
-                
-                // 按词书分组取最佳
-                const bestRecords = {};
-                history.forEach(record => {
-                    const key = `${record.book}_${username}`;
-                    if (!bestRecords[key] || record.wpm > bestRecords[key].wpm) {
-                        bestRecords[key] = { ...record, username: username };
-                    }
-                });
-                
-                data = Object.values(bestRecords).sort((a, b) => b.wpm - a.wpm);
-            } else {
-                // 全球排行榜
-                data = await leaderboard.getLeaderboard(currentFilter, 20);
-            }
-            
-            // 筛选
-            if (currentFilter !== 'all') {
-                data = data.filter(r => r.book === currentFilter);
-            }
-            
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">暂无数据</td></tr>';
-                return;
-            }
-            
-            const bookColors = {
-                cet4: 'text-blue-400',
-                cet6: 'text-purple-400',
-                ielts: 'text-red-400',
-                toefl: 'text-orange-400',
-                gre: 'text-green-400',
-                programming: 'text-cyan-400',
-                business: 'text-amber-400',
-                academic: 'text-emerald-400'
-            };
-            
-            tbody.innerHTML = data.slice(0, 20).map((record, index) => {
-                const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'text-gray-400';
-                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
-                
-                return `
-                    <tr class="leaderboard-item border-b border-gray-800">
-                        <td class="py-3 pl-2 font-bold ${rankClass}">${medal}</td>
-                        <td class="py-3 font-semibold text-white">${record.username || '匿名'}</td>
-                        <td class="py-3 ${bookColors[record.book] || 'text-gray-400'}">${(record.book || 'unknown').toUpperCase()}</td>
-                        <td class="py-3 text-right font-mono text-cyan-400">${record.wpm}</td>
-                        <td class="py-3 text-right font-mono text-purple-400">${record.accuracy}%</td>
-                        <td class="py-3 text-right text-gray-500">${record.date || '-'}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        async function loadPersonalBest() {
-            const username = leaderboard.getUsername();
-            const div = document.getElementById('personalBest');
-            
-            if (!username) {
-                div.textContent = '请先设置用户名';
-                return;
-            }
-            
-            let record = null;
-            
-            if (leaderboardType === 'local') {
-                const history = JSON.parse(localStorage.getItem('typequest_history') || '[]');
-                if (history.length > 0) {
-                    if (currentFilter !== 'all') {
-                        const filtered = history.filter(h => h.book === currentFilter);
-                        if (filtered.length > 0) {
-                            record = filtered.sort((a, b) => b.wpm - a.wpm)[0];
-                        }
-                    } else {
-                        record = history.sort((a, b) => b.wpm - a.wpm)[0];
-                    }
-                }
-            } else {
-                record = await leaderboard.getPersonalBest(username, currentFilter);
-            }
-            
-            if (record) {
-                div.innerHTML = `
-                    <span class="text-cyan-400 font-bold">${record.wpm} WPM</span>
-                    <span class="text-gray-500 mx-2">|</span>
-                    <span class="text-purple-400">${record.accuracy}% 准确率</span>
-                    <span class="text-gray-500 mx-2">|</span>
-                    <span class="text-yellow-400">${(record.book || 'unknown').toUpperCase()}</span>
-                    <span class="text-gray-500 mx-2">|</span>
-                    <span class="text-green-400">${record.rank || '-'}</span>
-                `;
-            } else {
-                div.textContent = '暂无记录，快来挑战吧！';
-            }
-        }
-
-        // 事件监听
-        document.addEventListener('keydown', (e) => {
-            if (e.target.id !== 'inputField' && e.target.id !== 'usernameInput' && e.target.id !== 'loginEmail' && e.target.id !== 'registerEmail' && e.target.id !== 'resetEmail' && e.target.id !== 'registerPassword' && e.target.id !== 'loginPassword' && e.target.id !== 'registerNickname') {
-                document.getElementById('inputField').focus();
-            }
-            handleInput(e);
-        });
-
-        document.getElementById('startOverlay').addEventListener('click', startGame);
-
-        document.addEventListener('click', (e) => {
-            if (isPlaying && !e.target.closest('button') && !e.target.closest('#leaderboardModal') && !e.target.closest('#usernameModal') && !e.target.closest('#victoryModal') && !e.target.closest('#historyModal') && !e.target.closest('#authModal') && !e.target.closest('#profileModal')) {
-                document.getElementById('inputField').focus();
-            }
-        });
-
-        // 回车键保存用户名
-        document.getElementById('usernameInput').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                saveUsername();
-            }
-        });
-
-        // 初始化
-        generateWords();
-        renderTrack();
-    </script>
+    <script src="js/app.js"></script>
 </body>
 </html>

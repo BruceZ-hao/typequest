@@ -67,26 +67,31 @@ class Leaderboard {
         // 尝试保存到Firebase
         if (this.useFirebase && this.db) {
             try {
-                // 写入全局排行榜
-                await this.db.ref('leaderboard').push(record);
-                
-                // 写入个人最佳记录
                 const personalBestRef = this.db.ref(`personalBest/${username}/${scoreData.book}`);
                 const snapshot = await personalBestRef.once('value');
                 const currentBest = snapshot.val();
-                
-                if (!currentBest || scoreData.wpm > currentBest.wpm) {
+
+                const isBetter =
+                    !currentBest ||
+                    scoreData.wpm > currentBest.wpm ||
+                    (scoreData.wpm === currentBest.wpm && scoreData.accuracy > currentBest.accuracy);
+
+                if (isBetter) {
+                    // 只有刷新个人最佳时才写入云端总榜，避免重复成绩持续堆积
+                    await this.db.ref('leaderboard').push(record);
                     await personalBestRef.set(record);
+                    console.log('✅ 成绩已同步到云端排行榜');
+                    return 'cloud';
                 }
-                
-                console.log('✅ 分数已提交到全球排行榜');
-                return true;
+
+                console.log('ℹ️ 本次成绩未超过个人最佳，已保留本地记录');
+                return 'local';
             } catch (error) {
                 console.log('⚠️ 提交到全球排行榜失败:', error);
             }
         }
         
-        return false;
+        return 'local';
     }
 
     // 保存到本地
@@ -119,17 +124,15 @@ class Leaderboard {
                     const record = child.val();
                     data.push(record);
                 });
-                
-                // 按WPM降序排序
-                data.sort((a, b) => b.wpm - a.wpm);
-                
-                // 按词书筛选
+
+                const deduped = this.dedupeRecords(data);
+                deduped.sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy);
+
                 if (book !== 'all') {
-                    const filtered = data.filter(r => r.book === book);
-                    return filtered.slice(0, limit);
+                    return deduped.filter(r => r.book === book).slice(0, limit);
                 }
-                
-                return data.slice(0, limit);
+
+                return deduped.slice(0, limit);
             } catch (error) {
                 console.log('⚠️ 从Firebase获取排行榜失败，使用本地数据');
             }
@@ -142,17 +145,15 @@ class Leaderboard {
     // 获取本地排行榜
     getLocalLeaderboard(book = 'all', limit = 20) {
         const localRecords = JSON.parse(localStorage.getItem('typequest_leaderboard') || '[]');
-        
-        // 按WPM降序排序
-        localRecords.sort((a, b) => b.wpm - a.wpm);
-        
-        // 按词书筛选
+        const deduped = this.dedupeRecords(localRecords);
+
+        deduped.sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy);
+
         if (book !== 'all') {
-            const filtered = localRecords.filter(r => r.book === book);
-            return filtered.slice(0, limit);
+            return deduped.filter(r => r.book === book).slice(0, limit);
         }
-        
-        return localRecords.slice(0, limit);
+
+        return deduped.slice(0, limit);
     }
 
     // 获取个人最佳记录
@@ -238,6 +239,27 @@ class Leaderboard {
                 // 静默失败
             }
         }
+    }
+
+    dedupeRecords(records) {
+        const bestRecords = {};
+
+        records.forEach(record => {
+            const username = record.username || '匿名玩家';
+            const book = record.book || 'unknown';
+            const key = `${username}_${book}`;
+            const currentBest = bestRecords[key];
+
+            if (
+                !currentBest ||
+                record.wpm > currentBest.wpm ||
+                (record.wpm === currentBest.wpm && record.accuracy > currentBest.accuracy)
+            ) {
+                bestRecords[key] = record;
+            }
+        });
+
+        return Object.values(bestRecords);
     }
 }
 
