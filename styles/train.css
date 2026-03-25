@@ -10,9 +10,6 @@
     grid-template-columns: minmax(0, 1.16fr) minmax(320px, 0.84fr);
     gap: 20px;
     margin-bottom: 22px;
-    position: sticky;
-    top: 14px;
-    z-index: 6;
 }
 
 .train-hero-card {
@@ -125,7 +122,6 @@
 @media (max-width: 1240px) {
     .train-hero-grid {
         grid-template-columns: 1fr;
-        position: static;
     }
 
     .train-body.is-focus-mode .train-brief-card {
