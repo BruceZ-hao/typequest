@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles/site.css?v=20260325d">
-    <link rel="stylesheet" href="styles/train.css?v=20260325d">
+    <link rel="stylesheet" href="styles/site.css?v=20260325e">
+    <link rel="stylesheet" href="styles/train.css?v=20260325e">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
@@ -30,10 +30,14 @@
                         训练已切换成独立页面。这里只保留当前任务、实时反馈和结算信息，让输入节奏更连贯，也更适合长时间沉浸练习。
                     </p>
                     <div class="hero-actions">
+                        <button id="focusModeButton" class="ghost-button compact-button" type="button">专注模式：关</button>
+                        <button id="fullscreenButton" class="ghost-button compact-button" type="button">全屏训练</button>
+                        <button id="soundToggleButton" class="ghost-button compact-button" type="button">音效：开</button>
                         <button id="arenaBackButton" class="ghost-button" type="button">返回任务简报</button>
                         <button id="arenaHomeButton" class="ghost-button" type="button">返回总览</button>
                         <span id="headerUsername" class="button-tag">匿名玩家</span>
                     </div>
+                    <p class="train-quick-hints">Enter 开始 / Esc 返回 / F 专注模式 / Shift + Enter 全屏</p>
                 </div>
 
                 <div class="metric-strip train-hero-metrics">
@@ -62,7 +66,7 @@
                 <p id="trainMissionNote" class="panel-note">独立训练页会根据当前词书和难度生成一轮专注练习。</p>
                 <div class="action-row train-brief-actions">
                     <div id="syncStatus" class="status-pill">云榜状态检测中</div>
-                    <button id="soundToggleButton" class="ghost-button compact-button" type="button">音效：开</button>
+                    <span class="train-brief-tag">训练完成后会自动展开结算面板</span>
                 </div>
                 <div class="detail-list">
                     <div class="detail-row">
@@ -182,7 +186,7 @@
             </aside>
         </section>
 
-        <section class="screen-grid screen-grid-result train-result-shell">
+        <section id="trainResultShell" class="screen-grid screen-grid-result train-result-shell">
             <article class="panel-card result-card">
                 <div class="panel-kicker">After Action Report</div>
                 <div id="resultRank" class="result-rank">A</div>
@@ -222,10 +226,10 @@
         </section>
     </div>
 
-    <script src="js/vocabulary.js?v=20260325d"></script>
-    <script src="js/storage.js?v=20260325d"></script>
-    <script src="js/firebase-config.js?v=20260325d"></script>
-    <script src="js/leaderboard.js?v=20260325d"></script>
-    <script src="js/train.js?v=20260325d"></script>
+    <script src="js/vocabulary.js?v=20260325e"></script>
+    <script src="js/storage.js?v=20260325e"></script>
+    <script src="js/firebase-config.js?v=20260325e"></script>
+    <script src="js/leaderboard.js?v=20260325e"></script>
+    <script src="js/train.js?v=20260325e"></script>
 </body>
 </html>

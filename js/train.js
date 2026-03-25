@@ -43,6 +43,7 @@ const state = {
     lastResult: null,
     resultSyncText: "成绩会先写入本地历史。",
     soundEnabled: trainStorage.getItem(STORAGE_KEYS.soundEnabled) !== "false",
+    isFocusMode: false,
     wrongFlash: null,
     timerId: null
 };
@@ -64,14 +65,14 @@ function cacheElements() {
         "headerUsername",
         "trainMissionBook", "trainMissionDifficulty", "trainMissionWordCount", "trainMissionBest",
         "trainMissionLabel", "trainMissionNote", "trainMissionSubNote",
-        "syncStatus", "soundToggleButton", "arenaBackButton", "arenaHomeButton", "arenaStepLabel",
+        "syncStatus", "soundToggleButton", "focusModeButton", "fullscreenButton", "arenaBackButton", "arenaHomeButton", "arenaStepLabel",
         "progressText", "translationLabel", "focusBookLabel", "progressBar", "typingStage",
         "stageBadge", "stageHint", "wordRack", "focusWord", "focusDifficultyLabel", "selectedWordCount",
         "typingInput", "startButton", "resetButton",
         "statWpm", "statAccuracy", "statCombo", "statTime",
         "bookDescription", "localBestInline", "selectedSyncMode",
         "resultRank", "resultMessage", "resultWpm", "resultAccuracy", "resultCombo", "resultWordCount",
-        "resultSyncStatus", "resultPlayAgainButton", "resultReturnBriefingButton", "resultHomeButton",
+        "resultSyncStatus", "trainResultShell", "resultPlayAgainButton", "resultReturnBriefingButton", "resultHomeButton",
         "resultHistoryButton", "resultLeaderboardButton"
     ].forEach((id) => {
         elements[id] = document.getElementById(id);
@@ -82,6 +83,8 @@ function bindEvents() {
     elements.arenaBackButton.addEventListener("click", () => attemptLeaveTo("briefing"));
     elements.arenaHomeButton.addEventListener("click", () => attemptLeaveTo("overview"));
     elements.soundToggleButton.addEventListener("click", toggleSound);
+    elements.focusModeButton.addEventListener("click", toggleFocusMode);
+    elements.fullscreenButton.addEventListener("click", toggleFullscreen);
     elements.typingStage.addEventListener("click", focusTypingInput);
     elements.typingInput.addEventListener("focus", focusTypingInput);
     elements.typingInput.addEventListener("input", handleTypingInput);
@@ -95,6 +98,7 @@ function bindEvents() {
     elements.resultLeaderboardButton.addEventListener("click", () => attemptLeaveTo("leaderboard"));
 
     document.addEventListener("keydown", handleGlobalKeydown);
+    document.addEventListener("fullscreenchange", refreshInteractionMode);
 }
 
 function getInitialBook() {
@@ -162,6 +166,7 @@ function refreshAllStatic() {
     refreshArenaStatic();
     refreshSyncStatus();
     populateResultScreen();
+    refreshInteractionMode();
 }
 
 function refreshHeader() {
@@ -290,7 +295,8 @@ function prepareSession() {
     state.completedCharCount = 0;
     state.startTime = null;
     state.isPlaying = false;
-    state.resultSyncText = state.lastResult ? state.resultSyncText : "成绩会先写入本地历史。";
+    state.lastResult = null;
+    state.resultSyncText = "成绩会先写入本地历史。";
     state.wrongFlash = null;
     stopTimer();
     elements.typingInput.value = "";
@@ -325,6 +331,7 @@ function startSession() {
         refreshArenaRealtime();
     }
 
+    refreshInteractionMode();
     focusTypingInput();
 }
 
@@ -335,8 +342,29 @@ function focusTypingInput() {
 }
 
 function handleGlobalKeydown(event) {
+    if (event.shiftKey && event.key === "Enter") {
+        event.preventDefault();
+        toggleFullscreen();
+        return;
+    }
+
+    if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "f" && document.activeElement !== elements.typingInput) {
+        event.preventDefault();
+        toggleFocusMode();
+        return;
+    }
+
     if (event.key === "Escape") {
         event.preventDefault();
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+            return;
+        }
+        if (state.isFocusMode) {
+            state.isFocusMode = false;
+            refreshInteractionMode();
+            return;
+        }
         attemptLeaveTo("briefing");
         return;
     }
@@ -507,6 +535,34 @@ function syncUsername() {
     if (!leaderboard.getUsername()) {
         leaderboard.setUsername("匿名玩家");
     }
+}
+
+function refreshInteractionMode() {
+    document.body.classList.toggle("is-focus-mode", state.isFocusMode);
+    document.body.classList.toggle("is-session-live", state.isPlaying);
+    elements.trainResultShell.classList.toggle("is-visible", Boolean(state.lastResult));
+    elements.focusModeButton.textContent = `专注模式：${state.isFocusMode ? "开" : "关"}`;
+    elements.fullscreenButton.textContent = document.fullscreenElement ? "退出全屏" : "全屏训练";
+}
+
+function toggleFocusMode() {
+    state.isFocusMode = !state.isFocusMode;
+    refreshInteractionMode();
+    focusTypingInput();
+}
+
+async function toggleFullscreen() {
+    try {
+        if (document.fullscreenElement) {
+            await document.exitFullscreen();
+        } else {
+            await document.documentElement.requestFullscreen();
+        }
+    } catch (error) {
+        console.warn("TypeQuest fullscreen unavailable:", error);
+    }
+
+    refreshInteractionMode();
 }
 
 function toggleSound() {
