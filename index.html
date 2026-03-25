@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TypeQuest 是一个面向 CET、雅思、托福、GRE 与编程英语的单词打字训练场，支持本地成绩沉淀与云端排行榜。">
-    <meta name="theme-color" content="#12355b">
-    <title>TypeQuest | 单词打字训练场</title>
+    <meta name="description" content="TypeQuest 是一个赛博风格的单词打字训练站，现已升级为多界面流程：从总览、难度、词书、任务简报到训练舱逐步进入。">
+    <meta name="theme-color" content="#08101b">
+    <title>TypeQuest | 多界面训练流程</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
@@ -20,400 +20,601 @@
 
         <header class="topbar">
             <div class="brand-block">
-                <div class="eyebrow">Arcade Vocabulary Lab</div>
+                <div class="eyebrow">Sequential Cyber Vocabulary Mission</div>
                 <h1 class="hero-title">
                     <span>Type</span><span class="accent-text">Quest</span>
                 </h1>
                 <p class="hero-copy">
-                    把单词记忆改造成一场短兵相接的打字训练。切换词书、调整强度、保存历史成绩，
-                    本地数据随练随沉淀，云端排行榜可用时自动同步最佳表现。
+                    现在每个核心功能都拆成了独立界面。你可以按顺序点击进入训练流程，也可以单独跳到档案页、
+                    历史页和排行榜页，用更清晰的方式完成整轮练习。
                 </p>
             </div>
 
             <div class="topbar-actions">
-                <button id="leaderboardQuickButton" class="ghost-button accent-button" type="button">排行榜</button>
-                <button id="profileButton" class="ghost-button" type="button">
-                    玩家档案
-                    <span id="headerUsername" class="button-tag">匿名玩家</span>
-                </button>
+                <button id="navHomeButton" class="ghost-button is-route-active" type="button">总览</button>
+                <button id="navProfileButton" class="ghost-button" type="button">玩家档案</button>
+                <button id="navHistoryButton" class="ghost-button" type="button">成绩历史</button>
+                <button id="navLeaderboardButton" class="ghost-button accent-button" type="button">排行榜</button>
+                <span id="headerUsername" class="button-tag">匿名玩家</span>
             </div>
         </header>
 
-        <section class="hero-card">
-            <div class="hero-card-copy">
-                <div class="panel-kicker">Focus Loop</div>
-                <h2>用稳定节奏练速度，也把词义和熟练度一起带出来。</h2>
-                <p>
-                    当前版本重做了界面层级、移动端输入体验、本地玩家资料、成绩历史和排行榜视图，
-                    让这个仓库从“能玩”提升到“能持续练”。
+        <section class="journey-rail">
+            <div class="journey-copy-block">
+                <div class="panel-kicker">Mission Flow</div>
+                <h2 id="journeyLabel" class="journey-title">任务总览</h2>
+                <p id="journeyDetail" class="journey-copy">
+                    从这里进入训练、查看资料，或者继续上一次配置好的任务。
                 </p>
-                <div class="hero-actions">
-                    <button id="heroStartButton" class="primary-button" type="button">开始今天这轮</button>
-                    <button id="heroHistoryButton" class="ghost-button" type="button">查看训练记录</button>
-                </div>
             </div>
-
-            <div class="metric-strip" id="heroMetrics">
-                <article class="metric-card">
-                    <span>词书</span>
-                    <strong id="metricBooks">0</strong>
-                </article>
-                <article class="metric-card">
-                    <span>总词量</span>
-                    <strong id="metricWords">0</strong>
-                </article>
-                <article class="metric-card">
-                    <span>最佳 WPM</span>
-                    <strong id="metricBestWpm">0</strong>
-                </article>
-                <article class="metric-card">
-                    <span>练习次数</span>
-                    <strong id="metricRuns">0</strong>
-                </article>
-            </div>
+            <div id="journeySteps" class="journey-steps"></div>
         </section>
 
-        <main class="workspace-grid">
-            <section class="arena-card">
-                <div class="arena-head">
-                    <div>
-                        <div class="panel-kicker">Practice Arena</div>
-                        <h2>当前训练</h2>
-                    </div>
-
-                    <div class="status-row">
-                        <div id="syncStatus" class="status-pill">云榜状态检测中</div>
-                        <button id="soundToggleButton" class="ghost-button compact-button" type="button">音效：开</button>
-                    </div>
-                </div>
-
-                <div class="control-panel">
-                    <div class="control-group">
-                        <div class="control-label">难度</div>
-                        <div id="difficultyControls" class="chip-grid"></div>
-                    </div>
-
-                    <div class="control-group">
-                        <div class="control-label">词书</div>
-                        <div id="bookControls" class="book-grid"></div>
-                    </div>
-                </div>
-
-                <div class="progress-strip">
-                    <div class="progress-item">
-                        <span>进度</span>
-                        <strong id="progressText">0 / 0</strong>
-                    </div>
-                    <div class="progress-item">
-                        <span>当前释义</span>
-                        <strong id="translationLabel">准备开始</strong>
-                    </div>
-                    <div class="progress-item">
-                        <span>当前词书</span>
-                        <strong id="focusBookLabel">CET-4</strong>
-                    </div>
-                </div>
-
-                <div class="progress-bar-shell" aria-hidden="true">
-                    <div id="progressBar" class="progress-bar-fill"></div>
-                </div>
-
-                <div id="typingStage" class="typing-stage" tabindex="0">
-                    <div class="stage-callout">
-                        <span id="stageBadge" class="stage-badge">待开始</span>
-                        <p id="stageHint" class="stage-hint">点击“开始今天这轮”或把光标放到输入框后直接开打。</p>
-                    </div>
-
-                    <div id="wordRack" class="word-rack" aria-live="polite"></div>
-                </div>
-
-                <div class="focus-panel">
-                    <div>
-                        <div class="focus-label">当前目标词</div>
-                        <div id="focusWord" class="focus-word">adventure</div>
-                    </div>
-                    <div class="focus-meta">
-                        <span id="focusDifficultyLabel">标准强度</span>
-                        <span id="selectedWordCount">0 个词</span>
-                    </div>
-                </div>
-
-                <label class="input-shell" for="typingInput">
-                    <span>输入区</span>
-                    <input
-                        id="typingInput"
-                        class="typing-input"
-                        type="text"
-                        inputmode="latin"
-                        autocomplete="off"
-                        autocapitalize="off"
-                        spellcheck="false"
-                        placeholder="点击这里开始输入，支持桌面键盘和手机软键盘"
-                    >
-                </label>
-
-                <div class="action-row">
-                    <button id="startButton" class="primary-button" type="button">开始训练</button>
-                    <button id="resetButton" class="ghost-button" type="button">重开这一轮</button>
-                    <button id="leaderboardButton" class="ghost-button" type="button">查看排行榜</button>
-                    <button id="historyButton" class="ghost-button" type="button">成绩历史</button>
-                </div>
-
-                <div class="shortcut-bar">
-                    <span><strong>Enter</strong> 开始</span>
-                    <span><strong>Backspace</strong> 回退</span>
-                    <span><strong>Esc</strong> 关闭弹窗</span>
-                    <span><strong>Click/Tap</strong> 聚焦输入区</span>
-                </div>
-            </section>
-
-            <aside class="insight-column">
-                <article class="panel-card">
-                    <div class="panel-kicker">Live Stats</div>
-                    <h3>实时战绩</h3>
-                    <div class="stat-grid">
-                        <div class="stat-box">
-                            <span>WPM</span>
-                            <strong id="statWpm">0</strong>
+        <main class="screen-stack">
+            <section id="screen-overview" class="screen-view is-active" data-screen="overview">
+                <div class="screen-grid screen-grid-overview">
+                    <article class="hero-card">
+                        <div class="hero-card-copy">
+                            <div class="panel-kicker">Command Center</div>
+                            <h2>先进入总控台，再逐步跳转到训练流程。</h2>
+                            <p>
+                                新结构把原来挤在一页里的信息拆成了多个独立界面。你可以先校准强度，再选词书，
+                                然后看任务简报，最后进入训练舱开始输入。
+                            </p>
+                            <div class="hero-actions">
+                                <button id="overviewStartButton" class="primary-button" type="button">开始顺序训练</button>
+                                <button id="overviewHistoryButton" class="ghost-button" type="button">查看成绩历史</button>
+                            </div>
                         </div>
-                        <div class="stat-box">
-                            <span>准确率</span>
-                            <strong id="statAccuracy">100%</strong>
-                        </div>
-                        <div class="stat-box">
-                            <span>连击</span>
-                            <strong id="statCombo">0</strong>
-                        </div>
-                        <div class="stat-box">
-                            <span>用时</span>
-                            <strong id="statTime">00:00</strong>
-                        </div>
-                    </div>
-                </article>
 
-                <article class="panel-card">
-                    <div class="panel-kicker">Pack Insight</div>
-                    <h3>本轮情报</h3>
-                    <p id="packSummary" class="panel-note"></p>
-                    <div class="detail-list">
-                        <div class="detail-row">
-                            <span>词书说明</span>
-                            <strong id="bookDescription">基础高频词汇</strong>
+                        <div class="metric-strip">
+                            <article class="metric-card">
+                                <span>词书数量</span>
+                                <strong id="metricBooks">0</strong>
+                            </article>
+                            <article class="metric-card">
+                                <span>词汇总量</span>
+                                <strong id="metricWords">0</strong>
+                            </article>
+                            <article class="metric-card">
+                                <span>最佳 WPM</span>
+                                <strong id="metricBestWpm">0</strong>
+                            </article>
+                            <article class="metric-card">
+                                <span>训练次数</span>
+                                <strong id="metricRuns">0</strong>
+                            </article>
                         </div>
-                        <div class="detail-row">
-                            <span>本地最佳</span>
-                            <strong id="localBestInline">暂无记录</strong>
+                    </article>
+
+                    <aside class="panel-card panel-card-stretch">
+                        <div class="panel-kicker">Current Setup</div>
+                        <h3>当前任务快照</h3>
+                        <div class="detail-list">
+                            <div class="detail-row">
+                                <span>当前词书</span>
+                                <strong id="overviewCurrentBook">-</strong>
+                            </div>
+                            <div class="detail-row">
+                                <span>当前难度</span>
+                                <strong id="overviewCurrentDifficulty">-</strong>
+                            </div>
+                            <div class="detail-row">
+                                <span>本轮词数</span>
+                                <strong id="overviewCurrentWords">0</strong>
+                            </div>
+                            <div class="detail-row">
+                                <span>该词书最佳</span>
+                                <strong id="overviewCurrentBest">暂无记录</strong>
+                            </div>
                         </div>
-                        <div class="detail-row">
-                            <span>排行榜模式</span>
-                            <strong id="selectedSyncMode">本地优先</strong>
-                        </div>
-                    </div>
-                </article>
+                    </aside>
+                </div>
+
+                <div class="function-grid">
+                    <article class="function-card">
+                        <div class="panel-kicker">Path 01</div>
+                        <h3>顺序训练流程</h3>
+                        <p>从难度页到词书页，再到任务简报和训练舱，按步骤进入。</p>
+                        <button class="primary-button" id="overviewStartButtonSecondary" type="button">进入流程</button>
+                    </article>
+                    <article class="function-card">
+                        <div class="panel-kicker">Path 02</div>
+                        <h3>玩家档案页</h3>
+                        <p>编辑昵称、查看总场次、累计词数和每本词书的最佳表现。</p>
+                        <button class="ghost-button" id="overviewProfileButton" type="button">打开档案页</button>
+                    </article>
+                    <article class="function-card">
+                        <div class="panel-kicker">Path 03</div>
+                        <h3>成绩历史页</h3>
+                        <p>集中查看本地历史，支持导出 JSON 和清空训练记录。</p>
+                        <button class="ghost-button" id="overviewHistoryButtonSecondary" type="button">打开历史页</button>
+                    </article>
+                    <article class="function-card">
+                        <div class="panel-kicker">Path 04</div>
+                        <h3>排行榜页</h3>
+                        <p>切换本地榜与云端榜，并按词书过滤你关注的成绩。</p>
+                        <button class="ghost-button" id="overviewLeaderboardButton" type="button">打开排行榜</button>
+                    </article>
+                </div>
 
                 <article class="panel-card">
                     <div class="panel-kicker">Recent Runs</div>
-                    <h3>最近成绩</h3>
+                    <h3>最近训练</h3>
                     <div id="recentRuns" class="recent-list"></div>
-                    <div class="panel-actions">
-                        <button id="exportButton" class="ghost-button compact-button" type="button">导出 JSON</button>
-                        <button id="clearHistoryButton" class="ghost-button compact-button danger-button" type="button">清空记录</button>
+                </article>
+            </section>
+
+            <section id="screen-difficulty" class="screen-view" data-screen="difficulty">
+                <div class="screen-toolbar">
+                    <div>
+                        <div class="panel-kicker">Step 01</div>
+                        <h2>选择训练强度</h2>
+                        <p class="panel-note">先决定这一轮的字数和压力，再进入词书选择。</p>
+                    </div>
+                    <div class="action-row">
+                        <button id="difficultyBackButton" class="ghost-button" type="button">返回总览</button>
+                        <button id="difficultyNextButton" class="primary-button" type="button">下一步：选择词书</button>
+                    </div>
+                </div>
+
+                <div class="screen-grid screen-grid-setup">
+                    <article class="panel-card">
+                        <div class="panel-kicker">Difficulty Grid</div>
+                        <h3>点击选择一个难度</h3>
+                        <div id="difficultyControls" class="choice-grid"></div>
+                    </article>
+
+                    <aside class="panel-card panel-card-stretch">
+                        <div class="panel-kicker">Selection</div>
+                        <h3>当前强度</h3>
+                        <div class="detail-list">
+                            <div class="detail-row">
+                                <span>模式</span>
+                                <strong id="difficultySummaryLabel">-</strong>
+                            </div>
+                            <div class="detail-row">
+                                <span>预计词数</span>
+                                <strong id="difficultySummaryCount">0</strong>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <section id="screen-book" class="screen-view" data-screen="book">
+                <div class="screen-toolbar">
+                    <div>
+                        <div class="panel-kicker">Step 02</div>
+                        <h2>选择词书</h2>
+                        <p class="panel-note">把目标考试或学习场景锁定好，再查看这轮任务简报。</p>
+                    </div>
+                    <div class="action-row">
+                        <button id="bookBackButton" class="ghost-button" type="button">返回难度页</button>
+                        <button id="bookNextButton" class="primary-button" type="button">下一步：任务简报</button>
+                    </div>
+                </div>
+
+                <div class="screen-grid screen-grid-setup">
+                    <article class="panel-card">
+                        <div class="panel-kicker">Book Grid</div>
+                        <h3>点击选择一个词书</h3>
+                        <div id="bookControls" class="choice-grid"></div>
+                    </article>
+
+                    <aside class="panel-card panel-card-stretch">
+                        <div class="panel-kicker">Selected Pack</div>
+                        <h3 id="bookSummaryLabel">-</h3>
+                        <p id="bookSummaryNote" class="panel-note"></p>
+                        <div class="detail-list">
+                            <div class="detail-row">
+                                <span>词包总量</span>
+                                <strong id="bookPackCount">0</strong>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <section id="screen-briefing" class="screen-view" data-screen="briefing">
+                <div class="screen-toolbar">
+                    <div>
+                        <div class="panel-kicker">Step 03</div>
+                        <h2>任务简报</h2>
+                        <p class="panel-note">确认词书、难度和本地最佳，然后正式进入训练舱。</p>
+                    </div>
+                    <div class="action-row">
+                        <button id="briefingBackButton" class="ghost-button" type="button">返回词书页</button>
+                        <button id="briefingEnterArenaButton" class="primary-button" type="button">进入训练舱</button>
+                    </div>
+                </div>
+
+                <div class="screen-grid briefing-grid">
+                    <article class="hero-card briefing-hero">
+                        <div class="hero-card-copy">
+                            <div class="panel-kicker">Mission Payload</div>
+                            <h2>这轮配置已经锁定，可以直接开始。</h2>
+                            <p id="briefingBookNote" class="panel-note"></p>
+                        </div>
+                        <div class="metric-strip">
+                            <article class="metric-card">
+                                <span>难度</span>
+                                <strong id="briefingDifficulty">-</strong>
+                            </article>
+                            <article class="metric-card">
+                                <span>词书</span>
+                                <strong id="briefingBook">-</strong>
+                            </article>
+                            <article class="metric-card">
+                                <span>本轮词数</span>
+                                <strong id="briefingWordCount">0</strong>
+                            </article>
+                            <article class="metric-card">
+                                <span>本地最佳</span>
+                                <strong id="briefingLocalBest">暂无记录</strong>
+                            </article>
+                            <article class="metric-card">
+                                <span>词包总量</span>
+                                <strong id="briefingPackCount">0</strong>
+                            </article>
+                            <article class="metric-card">
+                                <span>平均难度</span>
+                                <strong id="briefingAverageDifficulty">0.0</strong>
+                            </article>
+                        </div>
+                    </article>
+
+                    <aside class="panel-card panel-card-stretch">
+                        <div class="panel-kicker">Recent Context</div>
+                        <h3>最近记录</h3>
+                        <div id="briefingRecentRuns" class="recent-list"></div>
+                    </aside>
+                </div>
+            </section>
+
+            <section id="screen-arena" class="screen-view" data-screen="arena">
+                <div class="screen-toolbar">
+                    <div>
+                        <div class="panel-kicker">Step 04</div>
+                        <h2>训练舱</h2>
+                        <p id="arenaStepLabel" class="panel-note">准备进入输入状态。</p>
+                    </div>
+                    <div class="action-row">
+                        <div id="syncStatus" class="status-pill">云榜状态检测中</div>
+                        <button id="soundToggleButton" class="ghost-button compact-button" type="button">音效：开</button>
+                        <button id="arenaBackButton" class="ghost-button" type="button">返回简报页</button>
+                        <button id="arenaHomeButton" class="ghost-button" type="button">返回总览</button>
+                    </div>
+                </div>
+
+                <div class="arena-layout">
+                    <div class="arena-main">
+                        <div class="progress-strip">
+                            <div class="progress-item">
+                                <span>进度</span>
+                                <strong id="progressText">0 / 0</strong>
+                            </div>
+                            <div class="progress-item">
+                                <span>当前释义</span>
+                                <strong id="translationLabel">准备开始</strong>
+                            </div>
+                            <div class="progress-item">
+                                <span>当前词书</span>
+                                <strong id="focusBookLabel">-</strong>
+                            </div>
+                        </div>
+
+                        <div class="progress-bar-shell" aria-hidden="true">
+                            <div id="progressBar" class="progress-bar-fill"></div>
+                        </div>
+
+                        <div id="typingStage" class="typing-stage" tabindex="0">
+                            <div class="stage-callout">
+                                <span id="stageBadge" class="stage-badge">待开始</span>
+                                <p id="stageHint" class="stage-hint">点击开始训练后，在输入框里持续输入当前单词。</p>
+                            </div>
+                            <div id="wordRack" class="word-rack" aria-live="polite"></div>
+                        </div>
+
+                        <div class="focus-panel">
+                            <div>
+                                <div class="focus-label">当前目标词</div>
+                                <div id="focusWord" class="focus-word">ready</div>
+                            </div>
+                            <div class="focus-meta">
+                                <span id="focusDifficultyLabel">-</span>
+                                <span id="selectedWordCount">0 个词</span>
+                            </div>
+                        </div>
+
+                        <label class="input-shell" for="typingInput">
+                            <span>输入区</span>
+                            <input
+                                id="typingInput"
+                                class="typing-input"
+                                type="text"
+                                inputmode="latin"
+                                autocomplete="off"
+                                autocapitalize="off"
+                                spellcheck="false"
+                                placeholder="点击这里开始输入，支持桌面键盘和手机软键盘"
+                            >
+                        </label>
+
+                        <div class="action-row">
+                            <button id="startButton" class="primary-button" type="button">开始训练</button>
+                            <button id="resetButton" class="ghost-button" type="button">重开这一轮</button>
+                        </div>
+                    </div>
+
+                    <aside class="arena-side">
+                        <article class="panel-card">
+                            <div class="panel-kicker">Live Stats</div>
+                            <h3>实时战绩</h3>
+                            <div class="stat-grid">
+                                <div class="stat-box">
+                                    <span>WPM</span>
+                                    <strong id="statWpm">0</strong>
+                                </div>
+                                <div class="stat-box">
+                                    <span>准确率</span>
+                                    <strong id="statAccuracy">100%</strong>
+                                </div>
+                                <div class="stat-box">
+                                    <span>连击</span>
+                                    <strong id="statCombo">0</strong>
+                                </div>
+                                <div class="stat-box">
+                                    <span>用时</span>
+                                    <strong id="statTime">00:00</strong>
+                                </div>
+                            </div>
+                        </article>
+
+                        <article class="panel-card">
+                            <div class="panel-kicker">Pack Insight</div>
+                            <h3>当前词包情报</h3>
+                            <div class="detail-list">
+                                <div class="detail-row">
+                                    <span>词书说明</span>
+                                    <strong id="bookDescription">-</strong>
+                                </div>
+                                <div class="detail-row">
+                                    <span>本地最佳</span>
+                                    <strong id="localBestInline">暂无记录</strong>
+                                </div>
+                                <div class="detail-row">
+                                    <span>排行榜模式</span>
+                                    <strong id="selectedSyncMode">本地优先</strong>
+                                </div>
+                            </div>
+                        </article>
+                    </aside>
+                </div>
+            </section>
+
+            <section id="screen-result" class="screen-view" data-screen="result">
+                <div class="screen-toolbar">
+                    <div>
+                        <div class="panel-kicker">Step 05</div>
+                        <h2>结算面板</h2>
+                        <p class="panel-note">这一轮的速度、准确率和同步状态都在这里汇总。</p>
+                    </div>
+                    <div class="action-row">
+                        <button id="resultHomeButton" class="ghost-button" type="button">返回总览</button>
+                        <button id="resultHistoryButton" class="ghost-button" type="button">查看历史</button>
+                        <button id="resultLeaderboardButton" class="ghost-button" type="button">查看排行榜</button>
+                    </div>
+                </div>
+
+                <div class="screen-grid screen-grid-result">
+                    <article class="panel-card result-card">
+                        <div id="resultRank" class="result-rank">A</div>
+                        <p id="resultMessage" class="result-message">本轮结束。</p>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <span>WPM</span>
+                                <strong id="resultWpm">0</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>准确率</span>
+                                <strong id="resultAccuracy">0%</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>最高连击</span>
+                                <strong id="resultCombo">0</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>词数</span>
+                                <strong id="resultWordCount">0</strong>
+                            </div>
+                        </div>
+                    </article>
+
+                    <aside class="panel-card panel-card-stretch">
+                        <div class="panel-kicker">Run Status</div>
+                        <h3>同步与后续动作</h3>
+                        <p id="resultSyncStatus" class="panel-note">成绩已写入本地历史。</p>
+                        <div class="action-column">
+                            <button id="resultPlayAgainButton" class="primary-button" type="button">再来一轮</button>
+                            <button id="resultReturnBriefingButton" class="ghost-button" type="button">返回任务简报</button>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <section id="screen-history" class="screen-view" data-screen="history">
+                <div class="screen-toolbar">
+                    <div>
+                        <div class="panel-kicker">History Deck</div>
+                        <h2>成绩历史页</h2>
+                        <p class="panel-note">集中查看本地训练记录，并管理导出和清空操作。</p>
+                    </div>
+                    <div class="action-row">
+                        <button id="historyReturnButton" class="ghost-button" type="button">返回上一页</button>
+                        <button id="exportButton" class="ghost-button" type="button">导出 JSON</button>
+                        <button id="clearHistoryButton" class="ghost-button danger-button" type="button">清空记录</button>
+                    </div>
+                </div>
+
+                <article class="panel-card">
+                    <div class="stat-grid">
+                        <div class="stat-box">
+                            <span>总场次</span>
+                            <strong id="historyRuns">0</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>最佳 WPM</span>
+                            <strong id="historyBestWpm">0</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>平均准确率</span>
+                            <strong id="historyAverageAccuracy">0%</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>累计词数</span>
+                            <strong id="historyWordCount">0</strong>
+                        </div>
+                    </div>
+
+                    <div class="table-shell">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>玩家</th>
+                                    <th>词书</th>
+                                    <th>难度</th>
+                                    <th>WPM</th>
+                                    <th>准确率</th>
+                                    <th>评级</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyRows"></tbody>
+                        </table>
                     </div>
                 </article>
-            </aside>
+            </section>
+
+            <section id="screen-leaderboard" class="screen-view" data-screen="leaderboard">
+                <div class="screen-toolbar">
+                    <div>
+                        <div class="panel-kicker">Leaderboard Terminal</div>
+                        <h2>排行榜页</h2>
+                        <p class="panel-note">切换本地最佳和云端榜单，再按词书聚焦具体成绩。</p>
+                    </div>
+                    <div class="action-row">
+                        <button id="leaderboardReturnButton" class="ghost-button" type="button">返回上一页</button>
+                    </div>
+                </div>
+
+                <article class="panel-card">
+                    <div class="utility-grid">
+                        <div class="choice-stack">
+                            <div class="panel-kicker">Board Type</div>
+                            <div id="leaderboardTypeControls" class="choice-grid compact-grid"></div>
+                        </div>
+                        <div class="choice-stack">
+                            <div class="panel-kicker">Book Filter</div>
+                            <div id="leaderboardFilterControls" class="choice-grid compact-grid"></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-list">
+                        <div class="detail-row">
+                            <span>我的最佳成绩</span>
+                            <strong id="personalBestText">暂无记录</strong>
+                        </div>
+                        <div class="detail-row">
+                            <span>当前状态</span>
+                            <strong id="leaderboardStatusText">准备加载</strong>
+                        </div>
+                    </div>
+
+                    <div class="table-shell">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>排名</th>
+                                    <th>玩家</th>
+                                    <th>词书</th>
+                                    <th>WPM</th>
+                                    <th>准确率</th>
+                                    <th>日期</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboardRows"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+
+            <section id="screen-profile" class="screen-view" data-screen="profile">
+                <div class="screen-toolbar">
+                    <div>
+                        <div class="panel-kicker">Profile Core</div>
+                        <h2>玩家档案页</h2>
+                        <p class="panel-note">修改昵称，并查看你在本地设备上的全部累计表现。</p>
+                    </div>
+                    <div class="action-row">
+                        <button id="profileReturnButton" class="ghost-button" type="button">返回上一页</button>
+                    </div>
+                </div>
+
+                <div class="screen-grid screen-grid-setup">
+                    <article class="panel-card">
+                        <div class="panel-kicker">Identity</div>
+                        <h3>本地玩家名片</h3>
+                        <label class="input-shell" for="profileNameInput">
+                            <span>昵称</span>
+                            <input id="profileNameInput" class="typing-input" type="text" maxlength="20" placeholder="输入你的昵称">
+                        </label>
+                        <button id="saveProfileButton" class="primary-button" type="button">保存昵称</button>
+                    </article>
+
+                    <aside class="panel-card panel-card-stretch">
+                        <div class="panel-kicker">Profile Stats</div>
+                        <h3>累计数据</h3>
+                        <div class="stat-grid">
+                            <div class="stat-box">
+                                <span>总场次</span>
+                                <strong id="profileRuns">0</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>最佳 WPM</span>
+                                <strong id="profileBestWpm">0</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>平均准确率</span>
+                                <strong id="profileAverageAccuracy">0%</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>累计词数</span>
+                                <strong id="profileWords">0</strong>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+
+                <article class="panel-card">
+                    <div class="panel-kicker">Best Records</div>
+                    <h3>按词书分组的最佳成绩</h3>
+                    <div class="table-shell">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>词书</th>
+                                    <th>最佳 WPM</th>
+                                    <th>准确率</th>
+                                    <th>评级</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profileBestRows"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
         </main>
-    </div>
-
-    <div id="profileModal" class="modal-shell" aria-hidden="true">
-        <div class="modal-panel">
-            <div class="modal-head">
-                <div>
-                    <div class="panel-kicker">Profile</div>
-                    <h3>本地玩家资料</h3>
-                </div>
-                <button class="modal-close" type="button" data-close-modal="profileModal">×</button>
-            </div>
-
-            <div class="modal-stack">
-                <label class="input-shell" for="profileNameInput">
-                    <span>昵称</span>
-                    <input id="profileNameInput" class="typing-input modal-input" type="text" maxlength="20" placeholder="输入你的昵称">
-                </label>
-
-                <button id="saveProfileButton" class="primary-button" type="button">保存昵称</button>
-
-                <div class="stat-grid">
-                    <div class="stat-box">
-                        <span>总场次</span>
-                        <strong id="profileRuns">0</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>最佳 WPM</span>
-                        <strong id="profileBestWpm">0</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>平均准确率</span>
-                        <strong id="profileAverageAccuracy">0%</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>累计词数</span>
-                        <strong id="profileWords">0</strong>
-                    </div>
-                </div>
-
-                <div class="table-shell">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>词书</th>
-                                <th>最佳 WPM</th>
-                                <th>准确率</th>
-                                <th>评级</th>
-                            </tr>
-                        </thead>
-                        <tbody id="profileBestRows"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="leaderboardModal" class="modal-shell" aria-hidden="true">
-        <div class="modal-panel modal-panel-wide">
-            <div class="modal-head">
-                <div>
-                    <div class="panel-kicker">Leaderboard</div>
-                    <h3>排行榜</h3>
-                </div>
-                <button class="modal-close" type="button" data-close-modal="leaderboardModal">×</button>
-            </div>
-
-            <div class="modal-stack">
-                <div class="toggle-row">
-                    <div id="leaderboardTypeControls" class="chip-grid compact-grid"></div>
-                    <div id="leaderboardFilterControls" class="chip-grid compact-grid"></div>
-                </div>
-
-                <div class="detail-list">
-                    <div class="detail-row">
-                        <span>我的最佳成绩</span>
-                        <strong id="personalBestText">暂无记录</strong>
-                    </div>
-                    <div class="detail-row">
-                        <span>当前状态</span>
-                        <strong id="leaderboardStatusText">准备加载</strong>
-                    </div>
-                </div>
-
-                <div class="table-shell">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>排名</th>
-                                <th>玩家</th>
-                                <th>词书</th>
-                                <th>WPM</th>
-                                <th>准确率</th>
-                                <th>日期</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaderboardRows"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="historyModal" class="modal-shell" aria-hidden="true">
-        <div class="modal-panel modal-panel-wide">
-            <div class="modal-head">
-                <div>
-                    <div class="panel-kicker">History</div>
-                    <h3>训练历史</h3>
-                </div>
-                <button class="modal-close" type="button" data-close-modal="historyModal">×</button>
-            </div>
-
-            <div class="modal-stack">
-                <div class="stat-grid">
-                    <div class="stat-box">
-                        <span>总场次</span>
-                        <strong id="historyRuns">0</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>最佳 WPM</span>
-                        <strong id="historyBestWpm">0</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>平均准确率</span>
-                        <strong id="historyAverageAccuracy">0%</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>累计词数</span>
-                        <strong id="historyWordCount">0</strong>
-                    </div>
-                </div>
-
-                <div class="table-shell">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>时间</th>
-                                <th>玩家</th>
-                                <th>词书</th>
-                                <th>难度</th>
-                                <th>WPM</th>
-                                <th>准确率</th>
-                                <th>评级</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyRows"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="resultModal" class="modal-shell" aria-hidden="true">
-        <div class="modal-panel">
-            <div class="modal-head">
-                <div>
-                    <div class="panel-kicker">Run Complete</div>
-                    <h3>本轮结束</h3>
-                </div>
-                <button class="modal-close" type="button" data-close-modal="resultModal">×</button>
-            </div>
-
-            <div class="modal-stack">
-                <div class="result-rank" id="resultRank">A</div>
-                <p id="resultMessage" class="result-message">节奏很稳，继续把速度推上去。</p>
-                <div class="stat-grid">
-                    <div class="stat-box">
-                        <span>WPM</span>
-                        <strong id="resultWpm">0</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>准确率</span>
-                        <strong id="resultAccuracy">0%</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>最高连击</span>
-                        <strong id="resultCombo">0</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>词数</span>
-                        <strong id="resultWordCount">0</strong>
-                    </div>
-                </div>
-
-                <p id="resultSyncStatus" class="panel-note">成绩已写入本地历史。</p>
-
-                <div class="action-row">
-                    <button id="playAgainButton" class="primary-button" type="button">再来一轮</button>
-                    <button id="resultLeaderboardButton" class="ghost-button" type="button">查看排行榜</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="js/vocabulary.js"></script>

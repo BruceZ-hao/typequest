@@ -23,9 +23,34 @@ const STORAGE_KEYS = {
     soundEnabled: "typequest_sound_enabled"
 };
 
+const FLOW_STEPS = [
+    { key: "overview", label: "总览", detail: "入口与摘要" },
+    { key: "difficulty", label: "难度", detail: "校准强度" },
+    { key: "book", label: "词书", detail: "锁定词包" },
+    { key: "briefing", label: "简报", detail: "确认任务" },
+    { key: "arena", label: "训练", detail: "进入训练舱" },
+    { key: "result", label: "结算", detail: "查看结果" }
+];
+
+const SCREEN_META = {
+    overview: { title: "任务总览", detail: "先查看配置和数据，再决定进入哪一个独立界面。" },
+    difficulty: { title: "步骤 1 / 选择训练强度", detail: "先决定这一轮要打多少词、允许多高难度，再进入词书页。" },
+    book: { title: "步骤 2 / 选择词书", detail: "把目标考试或学习场景锁定，再生成这一轮的任务内容。" },
+    briefing: { title: "步骤 3 / 任务简报", detail: "确认配置、本地最佳和词包规模，然后进入训练舱。" },
+    arena: { title: "步骤 4 / 训练舱", detail: "开始输入，系统会实时计算速度、准确率和连击。" },
+    result: { title: "步骤 5 / 结算面板", detail: "查看成绩，再决定继续训练还是转去历史页和排行榜页。" },
+    history: { title: "成绩历史页", detail: "这里集中展示本地历史成绩，并支持导出和清空。" },
+    leaderboard: { title: "排行榜页", detail: "这里展示本地最佳与云端榜单，并支持按词书过滤。" },
+    profile: { title: "玩家档案页", detail: "这里管理昵称，并查看本地设备上的累计最佳表现。" }
+};
+
+const UTILITY_SCREENS = new Set(["history", "leaderboard", "profile"]);
+
 const state = {
     currentBook: localStorage.getItem(STORAGE_KEYS.currentBook) || "cet4",
     currentDifficulty: localStorage.getItem(STORAGE_KEYS.currentDifficulty) || "normal",
+    currentScreen: "overview",
+    utilityReturnScreen: "overview",
     sessionWords: [],
     currentWordIndex: 0,
     typedBuffer: "",
@@ -35,8 +60,8 @@ const state = {
     completedCharCount: 0,
     startTime: null,
     isPlaying: false,
-    pendingResult: null,
-    resultSyncText: "成绩已写入本地历史。",
+    lastResult: null,
+    resultSyncText: "成绩会先写入本地历史。",
     leaderboardType: "local",
     leaderboardFilter: "all",
     soundEnabled: localStorage.getItem(STORAGE_KEYS.soundEnabled) !== "false",
@@ -45,141 +70,64 @@ const state = {
 };
 
 const elements = {};
+const screenElements = {};
 
 function init() {
     cacheElements();
+    buildJourneySteps();
     buildDifficultyControls();
     buildBookControls();
     buildLeaderboardControls();
     bindEvents();
     prepareSession();
     syncUsername();
-    refreshAll();
-    refreshRecentRuns();
+    refreshAllStatic();
+    refreshArenaRealtime();
+    showScreen("overview");
 }
 
 function cacheElements() {
     [
-        "headerUsername",
-        "leaderboardQuickButton",
-        "profileButton",
-        "heroStartButton",
-        "heroHistoryButton",
-        "metricBooks",
-        "metricWords",
-        "metricBestWpm",
-        "metricRuns",
-        "syncStatus",
-        "soundToggleButton",
-        "difficultyControls",
-        "bookControls",
-        "progressText",
-        "translationLabel",
-        "focusBookLabel",
-        "progressBar",
-        "typingStage",
-        "stageBadge",
-        "stageHint",
-        "wordRack",
-        "focusWord",
-        "focusDifficultyLabel",
-        "selectedWordCount",
-        "typingInput",
-        "startButton",
-        "resetButton",
-        "leaderboardButton",
-        "historyButton",
-        "statWpm",
-        "statAccuracy",
-        "statCombo",
-        "statTime",
-        "packSummary",
-        "bookDescription",
-        "localBestInline",
-        "selectedSyncMode",
-        "recentRuns",
-        "exportButton",
-        "clearHistoryButton",
-        "profileModal",
-        "profileNameInput",
-        "saveProfileButton",
-        "profileRuns",
-        "profileBestWpm",
-        "profileAverageAccuracy",
-        "profileWords",
-        "profileBestRows",
-        "leaderboardModal",
-        "leaderboardTypeControls",
-        "leaderboardFilterControls",
-        "personalBestText",
-        "leaderboardStatusText",
-        "leaderboardRows",
-        "historyModal",
-        "historyRuns",
-        "historyBestWpm",
-        "historyAverageAccuracy",
-        "historyWordCount",
-        "historyRows",
-        "resultModal",
-        "resultRank",
-        "resultMessage",
-        "resultWpm",
-        "resultAccuracy",
-        "resultCombo",
-        "resultWordCount",
-        "resultSyncStatus",
-        "playAgainButton",
-        "resultLeaderboardButton"
+        "navHomeButton", "navProfileButton", "navHistoryButton", "navLeaderboardButton", "headerUsername",
+        "journeySteps", "journeyLabel", "journeyDetail",
+        "overviewStartButton", "overviewStartButtonSecondary", "overviewProfileButton", "overviewHistoryButton",
+        "overviewHistoryButtonSecondary", "overviewLeaderboardButton",
+        "metricBooks", "metricWords", "metricBestWpm", "metricRuns",
+        "overviewCurrentBook", "overviewCurrentDifficulty", "overviewCurrentWords", "overviewCurrentBest", "recentRuns",
+        "difficultyControls", "difficultySummaryLabel", "difficultySummaryCount", "difficultyBackButton", "difficultyNextButton",
+        "bookControls", "bookSummaryLabel", "bookSummaryNote", "bookPackCount", "bookBackButton", "bookNextButton",
+        "briefingDifficulty", "briefingBook", "briefingWordCount", "briefingLocalBest", "briefingBookNote",
+        "briefingPackCount", "briefingAverageDifficulty", "briefingRecentRuns", "briefingBackButton", "briefingEnterArenaButton",
+        "syncStatus", "soundToggleButton", "arenaStepLabel", "progressText", "translationLabel", "focusBookLabel",
+        "progressBar", "typingStage", "stageBadge", "stageHint", "wordRack", "focusWord", "focusDifficultyLabel",
+        "selectedWordCount", "typingInput", "startButton", "resetButton", "arenaBackButton", "arenaHomeButton",
+        "statWpm", "statAccuracy", "statCombo", "statTime", "bookDescription", "localBestInline", "selectedSyncMode",
+        "resultRank", "resultMessage", "resultWpm", "resultAccuracy", "resultCombo", "resultWordCount",
+        "resultSyncStatus", "resultPlayAgainButton", "resultReturnBriefingButton", "resultHomeButton",
+        "resultHistoryButton", "resultLeaderboardButton",
+        "historyReturnButton", "historyRuns", "historyBestWpm", "historyAverageAccuracy", "historyWordCount", "historyRows",
+        "exportButton", "clearHistoryButton",
+        "leaderboardReturnButton", "leaderboardTypeControls", "leaderboardFilterControls", "personalBestText",
+        "leaderboardStatusText", "leaderboardRows",
+        "profileReturnButton", "profileNameInput", "saveProfileButton", "profileRuns", "profileBestWpm",
+        "profileAverageAccuracy", "profileWords", "profileBestRows"
     ].forEach((id) => {
         elements[id] = document.getElementById(id);
     });
+
+    document.querySelectorAll(".screen-view").forEach((screen) => {
+        screenElements[screen.dataset.screen] = screen;
+    });
 }
 
-function bindEvents() {
-    elements.heroStartButton.addEventListener("click", startSession);
-    elements.startButton.addEventListener("click", startSession);
-    elements.resetButton.addEventListener("click", resetSession);
-    elements.historyButton.addEventListener("click", openHistoryModal);
-    elements.heroHistoryButton.addEventListener("click", openHistoryModal);
-    elements.leaderboardButton.addEventListener("click", openLeaderboardModal);
-    elements.leaderboardQuickButton.addEventListener("click", openLeaderboardModal);
-    elements.resultLeaderboardButton.addEventListener("click", () => {
-        closeModal("resultModal");
-        openLeaderboardModal();
-    });
-    elements.profileButton.addEventListener("click", openProfileModal);
-    elements.saveProfileButton.addEventListener("click", saveProfileName);
-    elements.exportButton.addEventListener("click", exportHistory);
-    elements.clearHistoryButton.addEventListener("click", clearHistory);
-    elements.playAgainButton.addEventListener("click", () => {
-        closeModal("resultModal");
-        resetSession();
-        startSession();
-    });
-    elements.soundToggleButton.addEventListener("click", toggleSound);
-    elements.typingStage.addEventListener("click", focusTypingInput);
-    elements.typingInput.addEventListener("focus", focusTypingInput);
-    elements.typingInput.addEventListener("input", handleTypingInput);
-    elements.profileNameInput.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            saveProfileName();
-        }
-    });
-
-    document.querySelectorAll("[data-close-modal]").forEach((button) => {
-        button.addEventListener("click", () => closeModal(button.dataset.closeModal));
-    });
-
-    document.querySelectorAll(".modal-shell").forEach((modal) => {
-        modal.addEventListener("click", (event) => {
-            if (event.target === modal) {
-                closeModal(modal.id);
-            }
-        });
-    });
-
-    document.addEventListener("keydown", handleGlobalKeydown);
+function buildJourneySteps() {
+    elements.journeySteps.innerHTML = FLOW_STEPS.map((step, index) => `
+        <button class="journey-step" type="button" data-flow-step="${step.key}">
+            <span class="journey-step-index">${String(index + 1).padStart(2, "0")}</span>
+            <strong>${step.label}</strong>
+            <small>${step.detail}</small>
+        </button>
+    `).join("");
 }
 
 function buildDifficultyControls() {
@@ -189,16 +137,6 @@ function buildDifficultyControls() {
             <small>${meta.subtitle}</small>
         </button>
     `).join("");
-
-    elements.difficultyControls.querySelectorAll("[data-difficulty]").forEach((button) => {
-        button.addEventListener("click", () => {
-            state.currentDifficulty = button.dataset.difficulty;
-            localStorage.setItem(STORAGE_KEYS.currentDifficulty, state.currentDifficulty);
-            prepareSession();
-            refreshAll();
-            focusTypingInput();
-        });
-    });
 }
 
 function buildBookControls() {
@@ -208,16 +146,6 @@ function buildBookControls() {
             <small>${meta.note}</small>
         </button>
     `).join("");
-
-    elements.bookControls.querySelectorAll("[data-book]").forEach((button) => {
-        button.addEventListener("click", () => {
-            state.currentBook = button.dataset.book;
-            localStorage.setItem(STORAGE_KEYS.currentBook, state.currentBook);
-            prepareSession();
-            refreshAll();
-            focusTypingInput();
-        });
-    });
 }
 
 function buildLeaderboardControls() {
@@ -241,21 +169,139 @@ function buildLeaderboardControls() {
             <strong>${option.label}</strong>
         </button>
     `).join("");
+}
 
-    elements.leaderboardTypeControls.querySelectorAll("[data-lb-type]").forEach((button) => {
-        button.addEventListener("click", async () => {
-            state.leaderboardType = button.dataset.lbType;
-            updateLeaderboardControlState();
-            await loadLeaderboard();
-        });
+function bindEvents() {
+    elements.navHomeButton.addEventListener("click", () => navigateTo("overview"));
+    elements.navProfileButton.addEventListener("click", () => openUtilityScreen("profile"));
+    elements.navHistoryButton.addEventListener("click", () => openUtilityScreen("history"));
+    elements.navLeaderboardButton.addEventListener("click", () => openUtilityScreen("leaderboard"));
+
+    elements.overviewStartButton.addEventListener("click", () => navigateTo("difficulty"));
+    elements.overviewStartButtonSecondary.addEventListener("click", () => navigateTo("difficulty"));
+    elements.overviewProfileButton.addEventListener("click", () => openUtilityScreen("profile"));
+    elements.overviewHistoryButton.addEventListener("click", () => openUtilityScreen("history"));
+    elements.overviewHistoryButtonSecondary.addEventListener("click", () => openUtilityScreen("history"));
+    elements.overviewLeaderboardButton.addEventListener("click", () => openUtilityScreen("leaderboard"));
+
+    elements.difficultyBackButton.addEventListener("click", () => navigateTo("overview"));
+    elements.difficultyNextButton.addEventListener("click", () => navigateTo("book"));
+    elements.bookBackButton.addEventListener("click", () => navigateTo("difficulty"));
+    elements.bookNextButton.addEventListener("click", () => navigateTo("briefing"));
+    elements.briefingBackButton.addEventListener("click", () => navigateTo("book"));
+    elements.briefingEnterArenaButton.addEventListener("click", enterArena);
+
+    elements.startButton.addEventListener("click", startSession);
+    elements.resetButton.addEventListener("click", resetSession);
+    elements.arenaBackButton.addEventListener("click", () => leaveArenaTo("briefing"));
+    elements.arenaHomeButton.addEventListener("click", () => leaveArenaTo("overview"));
+    elements.soundToggleButton.addEventListener("click", toggleSound);
+    elements.typingStage.addEventListener("click", focusTypingInput);
+    elements.typingInput.addEventListener("focus", focusTypingInput);
+    elements.typingInput.addEventListener("input", handleTypingInput);
+
+    elements.resultPlayAgainButton.addEventListener("click", enterArena);
+    elements.resultReturnBriefingButton.addEventListener("click", () => navigateTo("briefing"));
+    elements.resultHomeButton.addEventListener("click", () => navigateTo("overview"));
+    elements.resultHistoryButton.addEventListener("click", () => openUtilityScreen("history"));
+    elements.resultLeaderboardButton.addEventListener("click", () => openUtilityScreen("leaderboard"));
+
+    elements.historyReturnButton.addEventListener("click", returnFromUtilityScreen);
+    elements.leaderboardReturnButton.addEventListener("click", returnFromUtilityScreen);
+    elements.profileReturnButton.addEventListener("click", returnFromUtilityScreen);
+    elements.exportButton.addEventListener("click", exportHistory);
+    elements.clearHistoryButton.addEventListener("click", clearHistory);
+    elements.saveProfileButton.addEventListener("click", saveProfileName);
+    elements.profileNameInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            saveProfileName();
+        }
     });
 
-    elements.leaderboardFilterControls.querySelectorAll("[data-lb-filter]").forEach((button) => {
-        button.addEventListener("click", async () => {
-            state.leaderboardFilter = button.dataset.lbFilter;
-            updateLeaderboardControlState();
-            await loadLeaderboard();
-        });
+    elements.difficultyControls.addEventListener("click", (event) => handleDifficultySelection(event));
+    elements.bookControls.addEventListener("click", (event) => handleBookSelection(event));
+    elements.leaderboardTypeControls.addEventListener("click", (event) => handleLeaderboardTypeSelection(event));
+    elements.leaderboardFilterControls.addEventListener("click", (event) => handleLeaderboardFilterSelection(event));
+    elements.journeySteps.addEventListener("click", (event) => handleJourneySelection(event));
+
+    document.addEventListener("keydown", handleGlobalKeydown);
+}
+
+function handleDifficultySelection(event) {
+    const button = event.target.closest("[data-difficulty]");
+    if (!button) {
+        return;
+    }
+
+    state.currentDifficulty = button.dataset.difficulty;
+    localStorage.setItem(STORAGE_KEYS.currentDifficulty, state.currentDifficulty);
+    prepareSession();
+    updateDifficultyControlState();
+    refreshAllStatic();
+}
+
+function handleBookSelection(event) {
+    const button = event.target.closest("[data-book]");
+    if (!button) {
+        return;
+    }
+
+    state.currentBook = button.dataset.book;
+    localStorage.setItem(STORAGE_KEYS.currentBook, state.currentBook);
+    prepareSession();
+    updateBookControlState();
+    refreshAllStatic();
+}
+
+async function handleLeaderboardTypeSelection(event) {
+    const button = event.target.closest("[data-lb-type]");
+    if (!button) {
+        return;
+    }
+
+    state.leaderboardType = button.dataset.lbType;
+    updateLeaderboardControlState();
+    await loadLeaderboard();
+}
+
+async function handleLeaderboardFilterSelection(event) {
+    const button = event.target.closest("[data-lb-filter]");
+    if (!button) {
+        return;
+    }
+
+    state.leaderboardFilter = button.dataset.lbFilter;
+    updateLeaderboardControlState();
+    await loadLeaderboard();
+}
+
+function handleJourneySelection(event) {
+    const button = event.target.closest("[data-flow-step]");
+    if (!button) {
+        return;
+    }
+
+    const targetScreen = button.dataset.flowStep;
+    if (targetScreen === "result" && !state.lastResult) {
+        return;
+    }
+    if (targetScreen === "arena") {
+        enterArena();
+        return;
+    }
+    navigateTo(targetScreen);
+}
+
+function updateDifficultyControlState() {
+    elements.difficultyControls.querySelectorAll("[data-difficulty]").forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.difficulty === state.currentDifficulty);
+    });
+}
+
+function updateBookControlState() {
+    elements.bookControls.querySelectorAll("[data-book]").forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.book === state.currentBook);
     });
 }
 
@@ -263,10 +309,473 @@ function updateLeaderboardControlState() {
     elements.leaderboardTypeControls.querySelectorAll("[data-lb-type]").forEach((button) => {
         button.classList.toggle("is-active", button.dataset.lbType === state.leaderboardType);
     });
-
     elements.leaderboardFilterControls.querySelectorAll("[data-lb-filter]").forEach((button) => {
         button.classList.toggle("is-active", button.dataset.lbFilter === state.leaderboardFilter);
     });
+}
+
+function showScreen(screenKey) {
+    if (!screenElements[screenKey]) {
+        return;
+    }
+
+    state.currentScreen = screenKey;
+    Object.entries(screenElements).forEach(([key, screen]) => {
+        screen.classList.toggle("is-active", key === screenKey);
+    });
+
+    refreshRouteState();
+
+    if (screenKey === "history") {
+        refreshHistoryScreen();
+    } else if (screenKey === "profile") {
+        refreshProfileScreen();
+    } else if (screenKey === "leaderboard") {
+        loadLeaderboard();
+    } else if (screenKey === "arena") {
+        refreshArenaStatic();
+        refreshArenaRealtime();
+        focusTypingInput();
+    } else if (screenKey === "result") {
+        populateResultScreen();
+    }
+}
+
+function navigateTo(screenKey) {
+    if (state.currentScreen === "arena" && screenKey !== "arena" && !leaveArenaGuard()) {
+        return;
+    }
+
+    if (screenKey === "arena") {
+        enterArena();
+        return;
+    }
+
+    showScreen(screenKey);
+}
+
+function openUtilityScreen(screenKey) {
+    if (!UTILITY_SCREENS.has(screenKey)) {
+        return;
+    }
+
+    if (state.currentScreen === "arena" && !leaveArenaGuard()) {
+        return;
+    }
+
+    state.utilityReturnScreen = state.currentScreen;
+    showScreen(screenKey);
+}
+
+function returnFromUtilityScreen() {
+    showScreen(state.utilityReturnScreen || "overview");
+}
+
+function leaveArenaTo(screenKey) {
+    if (!leaveArenaGuard()) {
+        return;
+    }
+    showScreen(screenKey);
+}
+
+function leaveArenaGuard() {
+    if (!hasArenaProgress()) {
+        prepareSession();
+        refreshAllStatic();
+        refreshArenaRealtime();
+        return true;
+    }
+
+    const shouldLeave = window.confirm("当前训练舱里还有未完成的进度，确认离开并重置这一轮吗？");
+    if (!shouldLeave) {
+        return false;
+    }
+
+    prepareSession();
+    refreshAllStatic();
+    refreshArenaRealtime();
+    return true;
+}
+
+function refreshRouteState() {
+    const routeMapping = {
+        navHomeButton: !UTILITY_SCREENS.has(state.currentScreen),
+        navProfileButton: state.currentScreen === "profile",
+        navHistoryButton: state.currentScreen === "history",
+        navLeaderboardButton: state.currentScreen === "leaderboard"
+    };
+
+    Object.entries(routeMapping).forEach(([id, active]) => {
+        elements[id].classList.toggle("is-route-active", active);
+    });
+
+    const meta = SCREEN_META[state.currentScreen];
+    elements.journeyLabel.textContent = meta.title;
+    elements.journeyDetail.textContent = meta.detail;
+
+    const currentIndex = FLOW_STEPS.findIndex((step) => step.key === state.currentScreen);
+    elements.journeySteps.querySelectorAll("[data-flow-step]").forEach((button, index) => {
+        const target = button.dataset.flowStep;
+        button.classList.toggle("is-active", currentIndex === index);
+        button.classList.toggle("is-complete", currentIndex > index && currentIndex !== -1);
+        button.classList.toggle("is-disabled", target === "result" && !state.lastResult);
+    });
+}
+
+function refreshAllStatic() {
+    refreshHeader();
+    updateDifficultyControlState();
+    updateBookControlState();
+    updateLeaderboardControlState();
+    refreshOverviewScreen();
+    refreshDifficultyScreen();
+    refreshBookScreen();
+    refreshBriefingScreen();
+    refreshArenaStatic();
+    refreshProfileScreen();
+    refreshHistoryScreen();
+    refreshSyncStatus();
+    populateResultScreen();
+    refreshRouteState();
+}
+
+function refreshHeader() {
+    elements.headerUsername.textContent = leaderboard.getUsername() || "匿名玩家";
+    elements.profileNameInput.value = leaderboard.getUsername() || "";
+}
+
+function refreshOverviewScreen() {
+    const history = loadHistory();
+    const wordTotal = Object.values(vocabularyBooks).reduce((sum, pack) => sum + pack.length, 0);
+    const bestWpm = history.length ? Math.max(...history.map((entry) => entry.wpm || 0)) : 0;
+    const localBest = getLocalBestForBook(state.currentBook);
+
+    elements.metricBooks.textContent = String(Object.keys(vocabularyBooks).length);
+    elements.metricWords.textContent = String(wordTotal);
+    elements.metricBestWpm.textContent = String(bestWpm);
+    elements.metricRuns.textContent = String(history.length);
+    elements.overviewCurrentBook.textContent = BOOK_META[state.currentBook].label;
+    elements.overviewCurrentDifficulty.textContent = DIFFICULTY_META[state.currentDifficulty].label;
+    elements.overviewCurrentWords.textContent = String(state.sessionWords.length);
+    elements.overviewCurrentBest.textContent = localBest ? `${localBest.wpm} WPM / ${localBest.accuracy}%` : "暂无记录";
+
+    renderRecentRuns(elements.recentRuns, 4);
+}
+
+function refreshDifficultyScreen() {
+    const difficultyMeta = DIFFICULTY_META[state.currentDifficulty];
+    elements.difficultySummaryLabel.textContent = difficultyMeta.label;
+    elements.difficultySummaryCount.textContent = `${state.sessionWords.length} 词`;
+}
+
+function refreshBookScreen() {
+    const bookMeta = BOOK_META[state.currentBook];
+    const pack = vocabularyBooks[state.currentBook] || [];
+    elements.bookSummaryLabel.textContent = bookMeta.label;
+    elements.bookSummaryNote.textContent = bookMeta.note;
+    elements.bookPackCount.textContent = String(pack.length);
+}
+
+function refreshBriefingScreen() {
+    const bookMeta = BOOK_META[state.currentBook];
+    const difficultyMeta = DIFFICULTY_META[state.currentDifficulty];
+    const pack = vocabularyBooks[state.currentBook] || [];
+    const averageDifficulty = pack.length
+        ? (pack.reduce((sum, entry) => sum + (entry.difficulty || 1), 0) / pack.length).toFixed(1)
+        : "0.0";
+    const localBest = getLocalBestForBook(state.currentBook);
+
+    elements.briefingDifficulty.textContent = difficultyMeta.label;
+    elements.briefingBook.textContent = bookMeta.label;
+    elements.briefingWordCount.textContent = String(state.sessionWords.length);
+    elements.briefingLocalBest.textContent = localBest ? `${localBest.wpm} WPM / ${localBest.accuracy}%` : "暂无记录";
+    elements.briefingBookNote.textContent = `${bookMeta.note} 当前模式会抽取 ${state.sessionWords.length} 个词。`;
+    elements.briefingPackCount.textContent = String(pack.length);
+    elements.briefingAverageDifficulty.textContent = String(averageDifficulty);
+
+    renderRecentRuns(elements.briefingRecentRuns, 3);
+}
+
+function refreshArenaStatic() {
+    const bookMeta = BOOK_META[state.currentBook];
+    const difficultyMeta = DIFFICULTY_META[state.currentDifficulty];
+    const localBest = getLocalBestForBook(state.currentBook);
+
+    elements.arenaStepLabel.textContent = `${bookMeta.label} · ${difficultyMeta.label} · ${state.sessionWords.length} 词`;
+    elements.focusBookLabel.textContent = bookMeta.label;
+    elements.focusDifficultyLabel.textContent = difficultyMeta.label;
+    elements.selectedWordCount.textContent = `${state.sessionWords.length} 个词`;
+    elements.bookDescription.textContent = bookMeta.note;
+    elements.localBestInline.textContent = localBest ? `${localBest.wpm} WPM / ${localBest.accuracy}%` : "暂无记录";
+    elements.selectedSyncMode.textContent = leaderboard.useFirebase ? "本地 + 云端最佳" : "本地优先";
+}
+
+function refreshArenaRealtime() {
+    const currentWord = state.sessionWords[state.currentWordIndex];
+    const progressRatio = state.sessionWords.length ? state.currentWordIndex / state.sessionWords.length : 0;
+
+    elements.statWpm.textContent = String(getCurrentWpm());
+    elements.statAccuracy.textContent = `${getCurrentAccuracy()}%`;
+    elements.statCombo.textContent = String(state.currentCombo);
+    elements.statTime.textContent = formatDuration(getElapsedMs());
+
+    elements.progressText.textContent = `${state.currentWordIndex} / ${state.sessionWords.length}`;
+    elements.translationLabel.textContent = currentWord ? currentWord.cn : "本轮完成";
+    elements.progressBar.style.width = `${Math.min(100, Math.round(progressRatio * 100))}%`;
+    elements.focusWord.textContent = currentWord ? currentWord.en : "Mission Complete";
+    elements.stageBadge.textContent = state.isPlaying ? DIFFICULTY_META[state.currentDifficulty].stage : "待开始";
+    elements.stageHint.textContent = getStageHint(currentWord);
+
+    renderWordRack();
+}
+
+function renderWordRack() {
+    if (!state.sessionWords.length) {
+        elements.wordRack.innerHTML = `
+            <article class="word-card is-current">
+                <div class="word-card-header">
+                    <span class="word-card-index">00</span>
+                    <span class="translation-chip">等待生成</span>
+                </div>
+                <div class="word-text"><span class="word-char is-cursor">ready</span></div>
+            </article>
+        `;
+        return;
+    }
+
+    const start = Math.max(0, state.currentWordIndex - 2);
+    const end = Math.min(state.sessionWords.length, state.currentWordIndex + 6);
+    const wrongFlash = state.wrongFlash && Date.now() - state.wrongFlash.at < 260 ? state.wrongFlash : null;
+
+    elements.wordRack.innerHTML = state.sessionWords.slice(start, end).map((entry, localIndex) => {
+        const index = start + localIndex;
+        const isComplete = index < state.currentWordIndex;
+        const isCurrent = index === state.currentWordIndex;
+        const classes = ["word-card"];
+        if (isComplete) {
+            classes.push("is-complete");
+        }
+        if (isCurrent) {
+            classes.push("is-current");
+        }
+
+        const chars = entry.en.split("").map((char, charIndex) => {
+            const charClasses = ["word-char"];
+            if (isComplete || (isCurrent && charIndex < state.typedBuffer.length)) {
+                charClasses.push("is-correct");
+            } else if (isCurrent && charIndex === state.typedBuffer.length) {
+                charClasses.push("is-cursor");
+            }
+
+            if (
+                wrongFlash &&
+                wrongFlash.wordIndex === index &&
+                wrongFlash.charIndex === charIndex &&
+                isCurrent
+            ) {
+                charClasses.push("is-wrong");
+            }
+
+            return `<span class="${charClasses.join(" ")}">${escapeHtml(char)}</span>`;
+        }).join("");
+
+        return `
+            <article class="${classes.join(" ")}">
+                <div class="word-card-header">
+                    <span class="word-card-index">${String(index + 1).padStart(2, "0")}</span>
+                    <span class="translation-chip">${escapeHtml(entry.cn)}</span>
+                </div>
+                <div class="word-text">${chars}</div>
+            </article>
+        `;
+    }).join("");
+}
+
+function refreshProfileScreen() {
+    const history = loadHistory();
+    const totalRuns = history.length;
+    const bestWpm = totalRuns ? Math.max(...history.map((entry) => entry.wpm || 0)) : 0;
+    const averageAccuracy = totalRuns
+        ? Math.round(history.reduce((sum, entry) => sum + (entry.accuracy || 0), 0) / totalRuns)
+        : 0;
+    const totalWords = history.reduce((sum, entry) => sum + (entry.wordCount || 0), 0);
+
+    elements.profileRuns.textContent = String(totalRuns);
+    elements.profileBestWpm.textContent = String(bestWpm);
+    elements.profileAverageAccuracy.textContent = `${averageAccuracy}%`;
+    elements.profileWords.textContent = String(totalWords);
+
+    const bestByBook = {};
+    history.forEach((entry) => {
+        const key = entry.book;
+        if (!bestByBook[key] || isBetterRecord(entry, bestByBook[key])) {
+            bestByBook[key] = entry;
+        }
+    });
+
+    const rows = Object.values(bestByBook).sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy);
+    elements.profileBestRows.innerHTML = rows.length
+        ? rows.map((entry) => `
+            <tr>
+                <td>${escapeHtml((BOOK_META[entry.book] || {}).label || entry.book || "-")}</td>
+                <td>${entry.wpm}</td>
+                <td>${entry.accuracy}%</td>
+                <td>${escapeHtml(entry.rank || "-")}</td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="4">暂无记录</td></tr>`;
+}
+
+function refreshHistoryScreen() {
+    const history = loadHistory();
+    const totalRuns = history.length;
+    const bestWpm = totalRuns ? Math.max(...history.map((entry) => entry.wpm || 0)) : 0;
+    const averageAccuracy = totalRuns
+        ? Math.round(history.reduce((sum, entry) => sum + (entry.accuracy || 0), 0) / totalRuns)
+        : 0;
+    const totalWords = history.reduce((sum, entry) => sum + (entry.wordCount || 0), 0);
+
+    elements.historyRuns.textContent = String(totalRuns);
+    elements.historyBestWpm.textContent = String(bestWpm);
+    elements.historyAverageAccuracy.textContent = `${averageAccuracy}%`;
+    elements.historyWordCount.textContent = String(totalWords);
+
+    elements.historyRows.innerHTML = history.length
+        ? history.map((entry) => `
+            <tr>
+                <td>${escapeHtml(entry.date || "-")}</td>
+                <td>${escapeHtml(entry.username || "匿名玩家")}</td>
+                <td>${escapeHtml((BOOK_META[entry.book] || {}).label || entry.book || "-")}</td>
+                <td>${escapeHtml((DIFFICULTY_META[entry.difficulty] || {}).label || entry.difficulty || "-")}</td>
+                <td>${entry.wpm}</td>
+                <td>${entry.accuracy}%</td>
+                <td>${escapeHtml(entry.rank || "-")}</td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="7">暂无记录</td></tr>`;
+}
+
+function populateResultScreen() {
+    if (!state.lastResult) {
+        elements.resultRank.textContent = "A";
+        elements.resultMessage.textContent = "完成一轮训练后，这里会显示你的结算信息。";
+        elements.resultWpm.textContent = "0";
+        elements.resultAccuracy.textContent = "0%";
+        elements.resultCombo.textContent = "0";
+        elements.resultWordCount.textContent = "0";
+        elements.resultSyncStatus.textContent = "成绩会先写入本地历史。";
+        return;
+    }
+
+    elements.resultRank.textContent = state.lastResult.rank;
+    elements.resultMessage.textContent = getResultMessage(state.lastResult.rank);
+    elements.resultWpm.textContent = String(state.lastResult.wpm);
+    elements.resultAccuracy.textContent = `${state.lastResult.accuracy}%`;
+    elements.resultCombo.textContent = String(state.lastResult.combo);
+    elements.resultWordCount.textContent = String(state.lastResult.wordCount);
+    elements.resultSyncStatus.textContent = state.resultSyncText;
+}
+
+async function loadLeaderboard() {
+    const username = leaderboard.getUsername();
+    elements.leaderboardStatusText.textContent = "正在加载…";
+    elements.leaderboardRows.innerHTML = `<tr><td colspan="6">加载中…</td></tr>`;
+
+    let rows = [];
+    try {
+        rows = state.leaderboardType === "local"
+            ? getLocalLeaderboardRows(state.leaderboardFilter)
+            : await leaderboard.getLeaderboard(state.leaderboardFilter, 20);
+        elements.leaderboardStatusText.textContent = state.leaderboardType === "local"
+            ? "显示当前浏览器的最佳成绩"
+            : leaderboard.useFirebase
+                ? "显示 Firebase 云端最佳成绩"
+                : "Firebase 不可用，当前已回退到本地模式";
+    } catch (error) {
+        console.error("TypeQuest leaderboard failed:", error);
+        rows = getLocalLeaderboardRows(state.leaderboardFilter);
+        elements.leaderboardStatusText.textContent = "云端加载失败，已回退到本地成绩";
+    }
+
+    const personalBest = state.leaderboardType === "local"
+        ? getPersonalBestFromHistory(username, state.leaderboardFilter)
+        : await leaderboard.getPersonalBest(username, state.leaderboardFilter);
+
+    elements.personalBestText.textContent = personalBest
+        ? `${personalBest.wpm} WPM / ${personalBest.accuracy}% / ${(BOOK_META[personalBest.book] || {}).label || personalBest.book}`
+        : "暂无记录";
+
+    elements.leaderboardRows.innerHTML = rows.length
+        ? rows.map((entry, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${escapeHtml(entry.username || "匿名玩家")}</td>
+                <td>${escapeHtml((BOOK_META[entry.book] || {}).label || entry.book || "-")}</td>
+                <td>${entry.wpm}</td>
+                <td>${entry.accuracy}%</td>
+                <td>${escapeHtml(entry.date || "-")}</td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="6">暂无数据</td></tr>`;
+}
+
+function getLocalLeaderboardRows(filter) {
+    const history = loadHistory();
+    const bestMap = {};
+
+    history.forEach((entry) => {
+        if (filter !== "all" && entry.book !== filter) {
+            return;
+        }
+
+        const key = `${entry.username || "匿名玩家"}::${entry.book || "unknown"}`;
+        if (!bestMap[key] || isBetterRecord(entry, bestMap[key])) {
+            bestMap[key] = entry;
+        }
+    });
+
+    return Object.values(bestMap)
+        .sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy)
+        .slice(0, 20);
+}
+
+function getPersonalBestFromHistory(username, filter) {
+    const records = loadHistory().filter((entry) => (entry.username || "匿名玩家") === username);
+    const scoped = filter === "all" ? records : records.filter((entry) => entry.book === filter);
+    if (!scoped.length) {
+        return null;
+    }
+    return scoped.sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy)[0];
+}
+
+function refreshSyncStatus() {
+    const isCloudReady = Boolean(leaderboard.useFirebase);
+    elements.syncStatus.textContent = isCloudReady
+        ? "云端榜单可用，最佳成绩会自动同步"
+        : "当前为本地优先模式，成绩依然会完整保存";
+    elements.syncStatus.className = `status-pill ${isCloudReady ? "status-cloud" : "status-local"}`;
+    elements.soundToggleButton.textContent = `音效：${state.soundEnabled ? "开" : "关"}`;
+}
+
+function renderRecentRuns(container, limit) {
+    const history = loadHistory();
+    if (!history.length) {
+        container.innerHTML = `<p class="panel-note">还没有训练记录。完成一轮后，这里会自动积累你的最近成绩。</p>`;
+        return;
+    }
+
+    container.innerHTML = history.slice(0, limit).map((entry) => `
+        <article class="recent-item">
+            <div class="recent-item-top">
+                <span>${escapeHtml((BOOK_META[entry.book] || {}).label || entry.book || "Unknown")}</span>
+                <span>${escapeHtml(entry.date || "-")}</span>
+            </div>
+            <div class="recent-item-bottom">
+                <strong>${entry.wpm} WPM</strong>
+                <span class="rank-badge">${escapeHtml(entry.rank || "-")}</span>
+            </div>
+        </article>
+    `).join("");
 }
 
 function prepareSession() {
@@ -279,8 +788,7 @@ function prepareSession() {
     state.completedCharCount = 0;
     state.startTime = null;
     state.isPlaying = false;
-    state.pendingResult = null;
-    state.resultSyncText = "成绩已写入本地历史。";
+    state.resultSyncText = "成绩会先写入本地历史。";
     state.wrongFlash = null;
     stopTimer();
     elements.typingInput.value = "";
@@ -288,8 +796,18 @@ function prepareSession() {
 
 function resetSession() {
     prepareSession();
-    refreshAll();
-    focusTypingInput();
+    refreshAllStatic();
+    refreshArenaRealtime();
+    if (state.currentScreen === "arena") {
+        focusTypingInput();
+    }
+}
+
+function enterArena() {
+    prepareSession();
+    refreshAllStatic();
+    refreshArenaRealtime();
+    showScreen("arena");
 }
 
 function startSession() {
@@ -303,13 +821,17 @@ function startSession() {
             state.startTime = Date.now();
         }
         startTimer();
-        refreshAll();
+        refreshArenaRealtime();
     }
 
     focusTypingInput();
 }
 
 function focusTypingInput() {
+    if (state.currentScreen !== "arena") {
+        return;
+    }
+
     elements.typingInput.focus();
     const length = elements.typingInput.value.length;
     elements.typingInput.setSelectionRange(length, length);
@@ -317,18 +839,20 @@ function focusTypingInput() {
 
 function handleGlobalKeydown(event) {
     if (event.key === "Escape") {
-        const openModalElement = document.querySelector(".modal-shell.is-open");
-        if (openModalElement) {
-            closeModal(openModalElement.id);
+        if (UTILITY_SCREENS.has(state.currentScreen)) {
+            event.preventDefault();
+            returnFromUtilityScreen();
+            return;
+        }
+
+        if (state.currentScreen === "result") {
+            event.preventDefault();
+            navigateTo("overview");
             return;
         }
     }
 
-    if (document.querySelector(".modal-shell.is-open")) {
-        return;
-    }
-
-    if (event.key === "Enter" && document.activeElement !== elements.profileNameInput) {
+    if (state.currentScreen === "arena" && event.key === "Enter" && document.activeElement !== elements.profileNameInput) {
         event.preventDefault();
         startSession();
     }
@@ -351,7 +875,7 @@ function handleTypingInput() {
 
     if (state.typedBuffer.startsWith(sanitized)) {
         state.typedBuffer = sanitized;
-        refreshAll();
+        refreshArenaRealtime();
         return;
     }
 
@@ -403,7 +927,7 @@ function processCharacter(char) {
         pulseSound("bad");
     }
 
-    refreshAll();
+    refreshArenaRealtime();
 }
 
 function completeSession() {
@@ -411,13 +935,11 @@ function completeSession() {
     stopTimer();
 
     const result = buildResult();
-    saveHistory(result);
-    state.pendingResult = result;
+    state.lastResult = result;
     state.resultSyncText = "成绩已写入本地历史，正在同步排行榜…";
-    populateResultModal(result);
-    refreshAll();
-    refreshRecentRuns();
-    openModal("resultModal");
+    saveHistory(result);
+    refreshAllStatic();
+    showScreen("result");
     syncResult(result);
 }
 
@@ -432,8 +954,11 @@ async function syncResult(result) {
         console.error("TypeQuest sync failed:", error);
     }
 
-    elements.resultSyncStatus.textContent = state.resultSyncText;
-    refreshRecentRuns();
+    populateResultScreen();
+    refreshOverviewScreen();
+    refreshBriefingScreen();
+    refreshProfileScreen();
+    refreshHistoryScreen();
 }
 
 function buildResult() {
@@ -455,357 +980,30 @@ function buildResult() {
     };
 }
 
-function populateResultModal(result) {
-    elements.resultRank.textContent = result.rank;
-    elements.resultMessage.textContent = getResultMessage(result.rank);
-    elements.resultWpm.textContent = String(result.wpm);
-    elements.resultAccuracy.textContent = `${result.accuracy}%`;
-    elements.resultCombo.textContent = String(result.combo);
-    elements.resultWordCount.textContent = String(result.wordCount);
-    elements.resultSyncStatus.textContent = state.resultSyncText;
-}
-
-function refreshAll() {
-    refreshHeader();
-    refreshHeroMetrics();
-    refreshLiveStats();
-    refreshSessionSummary();
-    renderWordRack();
-    refreshSyncStatus();
-}
-
-function refreshHeader() {
-    const username = leaderboard.getUsername();
-    elements.headerUsername.textContent = username || "匿名玩家";
-    elements.profileNameInput.value = username || "";
-}
-
-function refreshHeroMetrics() {
-    const history = loadHistory();
-    const wordTotal = Object.values(vocabularyBooks).reduce((sum, words) => sum + words.length, 0);
-    const bestWpm = history.length ? Math.max(...history.map((entry) => entry.wpm || 0)) : 0;
-
-    elements.metricBooks.textContent = String(Object.keys(vocabularyBooks).length);
-    elements.metricWords.textContent = String(wordTotal);
-    elements.metricBestWpm.textContent = String(bestWpm);
-    elements.metricRuns.textContent = String(history.length);
-}
-
-function refreshLiveStats() {
-    elements.statWpm.textContent = String(getCurrentWpm());
-    elements.statAccuracy.textContent = `${getCurrentAccuracy()}%`;
-    elements.statCombo.textContent = String(state.currentCombo);
-    elements.statTime.textContent = formatDuration(getElapsedMs());
-
-    const currentWord = state.sessionWords[state.currentWordIndex];
-    const progressRatio = state.sessionWords.length ? state.currentWordIndex / state.sessionWords.length : 0;
-    elements.progressText.textContent = `${state.currentWordIndex} / ${state.sessionWords.length}`;
-    elements.translationLabel.textContent = currentWord ? currentWord.cn : "本轮完成";
-    elements.focusBookLabel.textContent = BOOK_META[state.currentBook].label;
-    elements.progressBar.style.width = `${Math.min(100, Math.round(progressRatio * 100))}%`;
-    elements.focusWord.textContent = currentWord ? currentWord.en : "Mission Complete";
-    elements.focusDifficultyLabel.textContent = DIFFICULTY_META[state.currentDifficulty].label;
-    elements.selectedWordCount.textContent = `${state.sessionWords.length} 个词`;
-    elements.stageBadge.textContent = state.isPlaying ? DIFFICULTY_META[state.currentDifficulty].stage : "待开始";
-    elements.stageHint.textContent = getStageHint(currentWord);
-}
-
-function refreshSessionSummary() {
-    const packWords = vocabularyBooks[state.currentBook] || [];
-    const currentMeta = BOOK_META[state.currentBook];
-    const difficultyMeta = DIFFICULTY_META[state.currentDifficulty];
-    const avgDifficulty = packWords.length
-        ? (packWords.reduce((sum, entry) => sum + (entry.difficulty || 1), 0) / packWords.length).toFixed(1)
-        : "0.0";
-    const localBest = getLocalBestForBook(state.currentBook);
-
-    elements.bookDescription.textContent = currentMeta.note;
-    elements.packSummary.textContent = `${currentMeta.label} 当前共 ${packWords.length} 个词，平均难度 ${avgDifficulty}。` +
-        `${difficultyMeta.label} 模式会抽取 ${state.sessionWords.length} 个词。`;
-    elements.localBestInline.textContent = localBest
-        ? `${localBest.wpm} WPM / ${localBest.accuracy}%`
-        : "暂无记录";
-    elements.selectedSyncMode.textContent = leaderboard.useFirebase ? "本地 + 云端最佳" : "本地优先";
-}
-
-function renderWordRack() {
-    if (!state.sessionWords.length) {
-        elements.wordRack.innerHTML = `
-            <article class="word-card is-current">
-                <div class="word-card-header">
-                    <span class="word-card-index">00</span>
-                    <span class="translation-chip">等待生成</span>
-                </div>
-                <div class="word-text"><span class="word-char is-cursor">ready</span></div>
-            </article>
-        `;
-        return;
-    }
-
-    const start = Math.max(0, state.currentWordIndex - 2);
-    const end = Math.min(state.sessionWords.length, state.currentWordIndex + 6);
-    const wrongFlash = state.wrongFlash && Date.now() - state.wrongFlash.at < 240 ? state.wrongFlash : null;
-
-    elements.wordRack.innerHTML = state.sessionWords.slice(start, end).map((entry, localIndex) => {
-        const index = start + localIndex;
-        const isComplete = index < state.currentWordIndex;
-        const isCurrent = index === state.currentWordIndex;
-        const cardClass = isComplete ? "is-complete" : isCurrent ? "is-current" : "is-upcoming";
-        const renderedChars = entry.en.split("").map((char, charIndex) => {
-            const classes = ["word-char"];
-
-            if (isComplete || (isCurrent && charIndex < state.typedBuffer.length)) {
-                classes.push("is-correct");
-            } else if (isCurrent && charIndex === state.typedBuffer.length) {
-                classes.push("is-cursor");
-            }
-
-            if (
-                wrongFlash &&
-                wrongFlash.wordIndex === index &&
-                wrongFlash.charIndex === charIndex &&
-                isCurrent
-            ) {
-                classes.push("is-wrong");
-            }
-
-            return `<span class="${classes.join(" ")}">${escapeHtml(char)}</span>`;
-        }).join("");
-
-        return `
-            <article class="word-card ${cardClass}">
-                <div class="word-card-header">
-                    <span class="word-card-index">${String(index + 1).padStart(2, "0")}</span>
-                    <span class="translation-chip">${escapeHtml(entry.cn)}</span>
-                </div>
-                <div class="word-text">${renderedChars}</div>
-            </article>
-        `;
-    }).join("");
-}
-
-function refreshRecentRuns() {
-    const history = loadHistory();
-
-    if (!history.length) {
-        elements.recentRuns.innerHTML = `<p class="recent-empty">还没有训练记录。先完成一轮，站点会开始积累你的本地数据。</p>`;
-    } else {
-        elements.recentRuns.innerHTML = history.slice(0, 4).map((entry) => `
-            <article class="recent-item">
-                <div class="recent-item-top">
-                    <span>${escapeHtml((BOOK_META[entry.book] || {}).label || entry.book || "Unknown")}</span>
-                    <span>${escapeHtml(entry.date || "-")}</span>
-                </div>
-                <div class="recent-item-bottom">
-                    <strong>${entry.wpm} WPM</strong>
-                    <span class="rank-badge">${escapeHtml(entry.rank || "-")}</span>
-                </div>
-            </article>
-        `).join("");
-    }
-
-    populateProfileModal();
-    populateHistoryModal();
-}
-
-function refreshSyncStatus() {
-    const isCloudReady = Boolean(leaderboard && leaderboard.useFirebase);
-    elements.syncStatus.textContent = isCloudReady
-        ? "云端榜单可用，最佳成绩会自动同步"
-        : "当前为本地优先模式，成绩依然会完整保存";
-    elements.syncStatus.className = `status-pill ${isCloudReady ? "status-cloud" : "status-local"}`;
-    elements.soundToggleButton.textContent = `音效：${state.soundEnabled ? "开" : "关"}`;
-}
-
-function populateProfileModal() {
-    const history = loadHistory();
-    const totalRuns = history.length;
-    const bestWpm = totalRuns ? Math.max(...history.map((entry) => entry.wpm || 0)) : 0;
-    const averageAccuracy = totalRuns
-        ? Math.round(history.reduce((sum, entry) => sum + (entry.accuracy || 0), 0) / totalRuns)
-        : 0;
-    const totalWords = history.reduce((sum, entry) => sum + (entry.wordCount || 0), 0);
-
-    elements.profileRuns.textContent = String(totalRuns);
-    elements.profileBestWpm.textContent = String(bestWpm);
-    elements.profileAverageAccuracy.textContent = `${averageAccuracy}%`;
-    elements.profileWords.textContent = String(totalWords);
-
-    const bestByBook = {};
-    history.forEach((entry) => {
-        const key = entry.book;
-        if (!bestByBook[key] || isBetterRecord(entry, bestByBook[key])) {
-            bestByBook[key] = entry;
-        }
-    });
-
-    const rows = Object.values(bestByBook).sort((a, b) => b.wpm - a.wpm);
-    elements.profileBestRows.innerHTML = rows.length
-        ? rows.map((entry) => `
-            <tr>
-                <td>${escapeHtml((BOOK_META[entry.book] || {}).label || entry.book || "-")}</td>
-                <td>${entry.wpm}</td>
-                <td>${entry.accuracy}%</td>
-                <td>${escapeHtml(entry.rank || "-")}</td>
-            </tr>
-        `).join("")
-        : `<tr><td colspan="4">暂无记录</td></tr>`;
-}
-
-function populateHistoryModal() {
-    const history = loadHistory();
-    const totalRuns = history.length;
-    const bestWpm = totalRuns ? Math.max(...history.map((entry) => entry.wpm || 0)) : 0;
-    const averageAccuracy = totalRuns
-        ? Math.round(history.reduce((sum, entry) => sum + (entry.accuracy || 0), 0) / totalRuns)
-        : 0;
-    const totalWords = history.reduce((sum, entry) => sum + (entry.wordCount || 0), 0);
-
-    elements.historyRuns.textContent = String(totalRuns);
-    elements.historyBestWpm.textContent = String(bestWpm);
-    elements.historyAverageAccuracy.textContent = `${averageAccuracy}%`;
-    elements.historyWordCount.textContent = String(totalWords);
-
-    elements.historyRows.innerHTML = history.length
-        ? history.map((entry) => `
-            <tr>
-                <td>${escapeHtml(entry.date || "-")}</td>
-                <td>${escapeHtml(entry.username || "匿名玩家")}</td>
-                <td>${escapeHtml((BOOK_META[entry.book] || {}).label || entry.book || "-")}</td>
-                <td>${escapeHtml((DIFFICULTY_META[entry.difficulty] || {}).label || entry.difficulty || "-")}</td>
-                <td>${entry.wpm}</td>
-                <td>${entry.accuracy}%</td>
-                <td>${escapeHtml(entry.rank || "-")}</td>
-            </tr>
-        `).join("")
-        : `<tr><td colspan="7">暂无记录</td></tr>`;
-}
-
-async function openLeaderboardModal() {
-    openModal("leaderboardModal");
-    await loadLeaderboard();
-}
-
-function openHistoryModal() {
-    populateHistoryModal();
-    openModal("historyModal");
-}
-
-function openProfileModal() {
-    populateProfileModal();
-    openModal("profileModal");
-}
-
-async function loadLeaderboard() {
-    const currentUser = leaderboard.getUsername();
-    elements.leaderboardStatusText.textContent = "正在加载…";
-    elements.leaderboardRows.innerHTML = `<tr><td colspan="6">加载中…</td></tr>`;
-
-    let rows = [];
-    try {
-        rows = state.leaderboardType === "local"
-            ? getLocalLeaderboardRows(state.leaderboardFilter)
-            : await leaderboard.getLeaderboard(state.leaderboardFilter, 20);
-        elements.leaderboardStatusText.textContent = state.leaderboardType === "local"
-            ? "显示当前浏览器的最佳成绩"
-            : leaderboard.useFirebase
-                ? "显示 Firebase 云端最佳成绩"
-                : "Firebase 不可用，当前已回退到本地模式";
-    } catch (error) {
-        console.error("TypeQuest leaderboard failed:", error);
-        rows = getLocalLeaderboardRows(state.leaderboardFilter);
-        elements.leaderboardStatusText.textContent = "云端加载失败，已回退到本地成绩";
-    }
-
-    const personalBest = state.leaderboardType === "local"
-        ? getPersonalBestFromHistory(currentUser, state.leaderboardFilter)
-        : await leaderboard.getPersonalBest(currentUser, state.leaderboardFilter);
-
-    elements.personalBestText.textContent = personalBest
-        ? `${personalBest.wpm} WPM / ${personalBest.accuracy}% / ${(BOOK_META[personalBest.book] || {}).label || personalBest.book}`
-        : "暂无记录";
-
-    elements.leaderboardRows.innerHTML = rows.length
-        ? rows.map((entry, index) => `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${escapeHtml(entry.username || "匿名玩家")}</td>
-                <td>${escapeHtml((BOOK_META[entry.book] || {}).label || entry.book || "-")}</td>
-                <td>${entry.wpm}</td>
-                <td>${entry.accuracy}%</td>
-                <td>${escapeHtml(entry.date || "-")}</td>
-            </tr>
-        `).join("")
-        : `<tr><td colspan="6">暂无数据</td></tr>`;
-}
-
-function getLocalLeaderboardRows(filter) {
-    const history = loadHistory();
-    const bestMap = {};
-
-    history.forEach((entry) => {
-        if (filter !== "all" && entry.book !== filter) {
-            return;
-        }
-
-        const key = `${entry.username || "匿名玩家"}::${entry.book || "unknown"}`;
-        if (!bestMap[key] || isBetterRecord(entry, bestMap[key])) {
-            bestMap[key] = entry;
-        }
-    });
-
-    return Object.values(bestMap)
-        .sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy)
-        .slice(0, 20);
-}
-
-function getPersonalBestFromHistory(username, filter) {
-    const history = loadHistory().filter((entry) => (entry.username || "匿名玩家") === username);
-    const scoped = filter === "all" ? history : history.filter((entry) => entry.book === filter);
-    if (!scoped.length) {
-        return null;
-    }
-
-    return scoped.sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy)[0];
-}
-
-function openModal(id) {
-    const modal = document.getElementById(id);
-    modal.classList.add("is-open");
-    modal.setAttribute("aria-hidden", "false");
-}
-
-function closeModal(id) {
-    const modal = document.getElementById(id);
-    modal.classList.remove("is-open");
-    modal.setAttribute("aria-hidden", "true");
-}
-
-function saveProfileName() {
-    const previousUsername = leaderboard.getUsername() || "匿名玩家";
-    const value = elements.profileNameInput.value.trim().slice(0, 20);
-    const username = leaderboard.setUsername(value || "匿名玩家");
-    if (username !== previousUsername) {
-        migrateLocalUsername(previousUsername, username);
-    }
-    elements.profileNameInput.value = username;
-    refreshAll();
-    refreshRecentRuns();
-}
-
 function syncUsername() {
     if (!leaderboard.getUsername()) {
         leaderboard.setUsername("匿名玩家");
     }
-    refreshHeader();
+}
+
+function saveProfileName() {
+    const previousUsername = leaderboard.getUsername() || "匿名玩家";
+    const nextValue = elements.profileNameInput.value.trim().slice(0, 20);
+    const nextUsername = leaderboard.setUsername(nextValue || "匿名玩家");
+
+    if (previousUsername !== nextUsername) {
+        migrateLocalUsername(previousUsername, nextUsername);
+    }
+
+    refreshAllStatic();
 }
 
 function migrateLocalUsername(previousUsername, nextUsername) {
-    const history = loadHistory().map((entry) => {
+    const updatedHistory = loadHistory().map((entry) => {
         const currentName = entry.username || previousUsername;
         return currentName === previousUsername ? { ...entry, username: nextUsername } : entry;
     });
-    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(history));
+    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(updatedHistory));
 
     const leaderboardRecords = JSON.parse(localStorage.getItem("typequest_leaderboard") || "[]").map((entry) => {
         const currentName = entry.username || previousUsername;
@@ -917,10 +1115,10 @@ function clearHistory() {
 
     localStorage.removeItem(STORAGE_KEYS.history);
     localStorage.removeItem("typequest_leaderboard");
-    refreshAll();
-    refreshRecentRuns();
-    if (document.querySelector("#historyModal.is-open")) {
-        populateHistoryModal();
+    state.lastResult = null;
+    refreshAllStatic();
+    if (state.currentScreen === "leaderboard") {
+        loadLeaderboard();
     }
 }
 
@@ -940,12 +1138,15 @@ function getLocalBestForBook(bookKey) {
     if (!records.length) {
         return null;
     }
-
     return records.sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy)[0];
 }
 
 function isBetterRecord(next, current) {
     return next.wpm > current.wpm || (next.wpm === current.wpm && next.accuracy > current.accuracy);
+}
+
+function hasArenaProgress() {
+    return state.isPlaying || state.currentWordIndex > 0 || state.typedBuffer.length > 0 || state.errorCount > 0;
 }
 
 function getCurrentAccuracy() {
@@ -976,8 +1177,7 @@ function getElapsedMs() {
 function startTimer() {
     stopTimer();
     state.timerId = window.setInterval(() => {
-        refreshLiveStats();
-        renderWordRack();
+        refreshArenaRealtime();
     }, 200);
 }
 
@@ -1030,16 +1230,12 @@ function getResultMessage(rank) {
         B: "完成度不错，下一步优先把误击压下去。",
         C: "这轮更像摸底，建议先用热身模式找回手感。"
     };
-
     return copy[rank] || copy.C;
 }
 
 function getStageHint(currentWord) {
-    if (state.pendingResult) {
-        return "本轮已结束，可以直接重开或切去看排行榜。";
-    }
     if (!state.isPlaying) {
-        return "点击“开始训练”或把焦点放到输入框后直接输入。";
+        return "点击开始训练后，在输入框里持续输入当前单词。";
     }
     if (!currentWord) {
         return "所有词都已完成。";
