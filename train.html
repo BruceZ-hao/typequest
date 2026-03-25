@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TypeQuest 独立训练页，专注当前词书、难度、实时输入反馈与结算信息。">
+    <meta name="theme-color" content="#08101b">
+    <title>TypeQuest | 独立训练页</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/site.css?v=20260325d">
+    <link rel="stylesheet" href="styles/train.css?v=20260325d">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+</head>
+<body class="train-body">
+    <div class="site-shell train-shell">
+        <div class="page-glow glow-left" aria-hidden="true"></div>
+        <div class="page-glow glow-right" aria-hidden="true"></div>
+
+        <section class="screen-grid train-hero-grid">
+            <article class="hero-card train-hero-card">
+                <div class="hero-card-copy">
+                    <div class="eyebrow">Dedicated Training Arena</div>
+                    <h1 class="hero-title train-title">
+                        <span>TypeQuest</span><span class="accent-text"> Arena</span>
+                    </h1>
+                    <p class="hero-copy">
+                        训练已切换成独立页面。这里只保留当前任务、实时反馈和结算信息，让输入节奏更连贯，也更适合长时间沉浸练习。
+                    </p>
+                    <div class="hero-actions">
+                        <button id="arenaBackButton" class="ghost-button" type="button">返回任务简报</button>
+                        <button id="arenaHomeButton" class="ghost-button" type="button">返回总览</button>
+                        <span id="headerUsername" class="button-tag">匿名玩家</span>
+                    </div>
+                </div>
+
+                <div class="metric-strip train-hero-metrics">
+                    <article class="metric-card">
+                        <span>当前词书</span>
+                        <strong id="trainMissionBook">-</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>当前难度</span>
+                        <strong id="trainMissionDifficulty">-</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>本轮词数</span>
+                        <strong id="trainMissionWordCount">0</strong>
+                    </article>
+                    <article class="metric-card">
+                        <span>本地最佳</span>
+                        <strong id="trainMissionBest">暂无记录</strong>
+                    </article>
+                </div>
+            </article>
+
+            <aside class="panel-card panel-card-stretch train-brief-card">
+                <div class="panel-kicker">Mission Capsule</div>
+                <h3 id="trainMissionLabel">正在载入任务</h3>
+                <p id="trainMissionNote" class="panel-note">独立训练页会根据当前词书和难度生成一轮专注练习。</p>
+                <div class="action-row train-brief-actions">
+                    <div id="syncStatus" class="status-pill">云榜状态检测中</div>
+                    <button id="soundToggleButton" class="ghost-button compact-button" type="button">音效：开</button>
+                </div>
+                <div class="detail-list">
+                    <div class="detail-row">
+                        <span>训练摘要</span>
+                        <strong id="arenaStepLabel">准备进入输入状态。</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>任务备注</span>
+                        <strong id="trainMissionSubNote">等待生成本轮目标词。</strong>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <section class="arena-layout">
+            <div class="arena-main">
+                <div class="progress-strip">
+                    <div class="progress-item">
+                        <span>进度</span>
+                        <strong id="progressText">0 / 0</strong>
+                    </div>
+                    <div class="progress-item">
+                        <span>当前释义</span>
+                        <strong id="translationLabel">准备开始</strong>
+                    </div>
+                    <div class="progress-item">
+                        <span>当前词书</span>
+                        <strong id="focusBookLabel">-</strong>
+                    </div>
+                </div>
+
+                <div class="progress-bar-shell" aria-hidden="true">
+                    <div id="progressBar" class="progress-bar-fill"></div>
+                </div>
+
+                <div id="typingStage" class="typing-stage" tabindex="0">
+                    <div class="stage-callout">
+                        <span id="stageBadge" class="stage-badge">待开始</span>
+                        <p id="stageHint" class="stage-hint">点击开始训练后，在输入框里持续输入当前单词。</p>
+                    </div>
+                    <div id="wordRack" class="word-rack" aria-live="polite"></div>
+                </div>
+
+                <div class="focus-panel">
+                    <div>
+                        <div class="focus-label">当前目标词</div>
+                        <div id="focusWord" class="focus-word">ready</div>
+                    </div>
+                    <div class="focus-meta">
+                        <span id="focusDifficultyLabel">-</span>
+                        <span id="selectedWordCount">0 个词</span>
+                    </div>
+                </div>
+
+                <label class="input-shell" for="typingInput">
+                    <span>输入区</span>
+                    <input
+                        id="typingInput"
+                        class="typing-input"
+                        type="text"
+                        inputmode="latin"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        placeholder="点击这里开始输入，支持桌面键盘和手机软键盘"
+                    >
+                </label>
+
+                <div class="action-row">
+                    <button id="startButton" class="primary-button" type="button">开始训练</button>
+                    <button id="resetButton" class="ghost-button" type="button">重开这一轮</button>
+                </div>
+            </div>
+
+            <aside class="arena-side">
+                <article class="panel-card">
+                    <div class="panel-kicker">Live Stats</div>
+                    <h3>实时战绩</h3>
+                    <div class="stat-grid">
+                        <div class="stat-box">
+                            <span>WPM</span>
+                            <strong id="statWpm">0</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>准确率</span>
+                            <strong id="statAccuracy">100%</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>连击</span>
+                            <strong id="statCombo">0</strong>
+                        </div>
+                        <div class="stat-box">
+                            <span>用时</span>
+                            <strong id="statTime">00:00</strong>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel-card">
+                    <div class="panel-kicker">Pack Insight</div>
+                    <h3>当前词包情报</h3>
+                    <div class="detail-list">
+                        <div class="detail-row">
+                            <span>词书说明</span>
+                            <strong id="bookDescription">-</strong>
+                        </div>
+                        <div class="detail-row">
+                            <span>本地最佳</span>
+                            <strong id="localBestInline">暂无记录</strong>
+                        </div>
+                        <div class="detail-row">
+                            <span>排行榜模式</span>
+                            <strong id="selectedSyncMode">本地优先</strong>
+                        </div>
+                    </div>
+                </article>
+            </aside>
+        </section>
+
+        <section class="screen-grid screen-grid-result train-result-shell">
+            <article class="panel-card result-card">
+                <div class="panel-kicker">After Action Report</div>
+                <div id="resultRank" class="result-rank">A</div>
+                <p id="resultMessage" class="result-message">完成一轮训练后，这里会显示你的结算信息。</p>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <span>WPM</span>
+                        <strong id="resultWpm">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>准确率</span>
+                        <strong id="resultAccuracy">0%</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>最高连击</span>
+                        <strong id="resultCombo">0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>词数</span>
+                        <strong id="resultWordCount">0</strong>
+                    </div>
+                </div>
+            </article>
+
+            <aside class="panel-card panel-card-stretch">
+                <div class="panel-kicker">Run Status</div>
+                <h3>同步与后续动作</h3>
+                <p id="resultSyncStatus" class="panel-note">成绩会先写入本地历史。</p>
+                <div class="action-column">
+                    <button id="resultPlayAgainButton" class="primary-button" type="button">再来一轮</button>
+                    <button id="resultReturnBriefingButton" class="ghost-button" type="button">返回任务简报</button>
+                    <button id="resultHomeButton" class="ghost-button" type="button">返回总览</button>
+                    <button id="resultHistoryButton" class="ghost-button" type="button">查看历史</button>
+                    <button id="resultLeaderboardButton" class="ghost-button accent-button" type="button">查看排行榜</button>
+                </div>
+            </aside>
+        </section>
+    </div>
+
+    <script src="js/vocabulary.js?v=20260325d"></script>
+    <script src="js/storage.js?v=20260325d"></script>
+    <script src="js/firebase-config.js?v=20260325d"></script>
+    <script src="js/leaderboard.js?v=20260325d"></script>
+    <script src="js/train.js?v=20260325d"></script>
+</body>
+</html>

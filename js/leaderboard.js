@@ -1,12 +1,12 @@
 // js/leaderboard.js
-const storage = window.typeQuestStorage || window.localStorage;
+const leaderboardStorage = window.typeQuestStorage || window.localStorage;
 
 function loadLocalLeaderboardRecords() {
     try {
-        return JSON.parse(storage.getItem('typequest_leaderboard') || '[]');
+        return JSON.parse(leaderboardStorage.getItem('typequest_leaderboard') || '[]');
     } catch (error) {
         console.warn('TypeQuest leaderboard cache parse failed, resetting local records.', error);
-        storage.removeItem('typequest_leaderboard');
+        leaderboardStorage.removeItem('typequest_leaderboard');
         return [];
     }
 }
@@ -38,7 +38,7 @@ class Leaderboard {
 
     // 初始化用户名
     initUsername() {
-        const saved = storage.getItem('typequest_username');
+        const saved = leaderboardStorage.getItem('typequest_username');
         if (saved) {
             this.currentUser = saved;
         } else {
@@ -49,7 +49,7 @@ class Leaderboard {
     // 设置用户名
     setUsername(username) {
         this.currentUser = username || '匿名玩家_' + Math.floor(Math.random() * 10000);
-        storage.setItem('typequest_username', this.currentUser);
+        leaderboardStorage.setItem('typequest_username', this.currentUser);
         return this.currentUser;
     }
 
@@ -120,7 +120,7 @@ class Leaderboard {
             }
         });
         
-        storage.setItem('typequest_leaderboard', JSON.stringify(Object.values(bestRecords)));
+        leaderboardStorage.setItem('typequest_leaderboard', JSON.stringify(Object.values(bestRecords)));
     }
 
     // 获取排行榜数据

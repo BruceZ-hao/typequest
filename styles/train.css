@@ -1,0 +1,44 @@
+.train-shell {
+    max-width: 1520px;
+}
+
+.train-hero-grid {
+    grid-template-columns: minmax(0, 1.16fr) minmax(320px, 0.84fr);
+    gap: 20px;
+    margin-bottom: 22px;
+}
+
+.train-hero-card {
+    overflow: hidden;
+}
+
+.train-title {
+    font-size: clamp(3rem, 7vw, 5.5rem);
+}
+
+.train-hero-metrics {
+    margin-top: 20px;
+}
+
+.train-brief-card {
+    display: grid;
+    gap: 18px;
+}
+
+.train-brief-card h3 {
+    margin-bottom: 0;
+}
+
+.train-brief-actions {
+    align-items: center;
+}
+
+.train-result-shell {
+    margin-top: 22px;
+}
+
+@media (max-width: 1240px) {
+    .train-hero-grid {
+        grid-template-columns: 1fr;
+    }
+}

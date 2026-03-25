@@ -23,7 +23,8 @@ const STORAGE_KEYS = {
     soundEnabled: "typequest_sound_enabled"
 };
 
-const storage = window.typeQuestStorage || window.localStorage;
+const appStorage = window.typeQuestStorage || window.localStorage;
+const TRAIN_PAGE_PATH = "train.html";
 
 const FLOW_STEPS = [
     { key: "overview", label: "总览", detail: "入口与摘要" },
@@ -32,6 +33,14 @@ const FLOW_STEPS = [
     { key: "briefing", label: "简报", detail: "确认任务" },
     { key: "arena", label: "训练", detail: "进入训练舱" },
     { key: "result", label: "结算", detail: "查看结果" }
+];
+
+const NAV_FLOW_STEPS = [
+    { key: "overview", label: "总览", detail: "入口与摘要" },
+    { key: "difficulty", label: "难度", detail: "校准强度" },
+    { key: "book", label: "词书", detail: "锁定词包" },
+    { key: "briefing", label: "简报", detail: "确认任务" },
+    { key: "arena", label: "训练页", detail: "跳转独立训练页" }
 ];
 
 const SCREEN_META = {
@@ -49,8 +58,8 @@ const SCREEN_META = {
 const UTILITY_SCREENS = new Set(["history", "leaderboard", "profile"]);
 
 const state = {
-    currentBook: storage.getItem(STORAGE_KEYS.currentBook) || "cet4",
-    currentDifficulty: storage.getItem(STORAGE_KEYS.currentDifficulty) || "normal",
+    currentBook: appStorage.getItem(STORAGE_KEYS.currentBook) || "cet4",
+    currentDifficulty: appStorage.getItem(STORAGE_KEYS.currentDifficulty) || "normal",
     currentScreen: "overview",
     utilityReturnScreen: "overview",
     sessionWords: [],
@@ -66,7 +75,7 @@ const state = {
     resultSyncText: "成绩会先写入本地历史。",
     leaderboardType: "local",
     leaderboardFilter: "all",
-    soundEnabled: storage.getItem(STORAGE_KEYS.soundEnabled) !== "false",
+    soundEnabled: appStorage.getItem(STORAGE_KEYS.soundEnabled) !== "false",
     wrongFlash: null,
     timerId: null
 };
@@ -76,6 +85,7 @@ const screenElements = {};
 
 function init() {
     cacheElements();
+    applyQueryState();
     buildJourneySteps();
     buildDifficultyControls();
     buildBookControls();
@@ -85,7 +95,7 @@ function init() {
     syncUsername();
     refreshAllStatic();
     refreshArenaRealtime();
-    showScreen("overview");
+    showScreen(getRequestedScreen());
 }
 
 function cacheElements() {
@@ -122,8 +132,36 @@ function cacheElements() {
     });
 }
 
+function applyQueryState() {
+    const params = new URLSearchParams(window.location.search);
+    const requestedBook = params.get("book");
+    const requestedDifficulty = params.get("difficulty");
+
+    if (requestedBook && BOOK_META[requestedBook]) {
+        state.currentBook = requestedBook;
+        appStorage.setItem(STORAGE_KEYS.currentBook, requestedBook);
+    }
+
+    if (requestedDifficulty && DIFFICULTY_META[requestedDifficulty]) {
+        state.currentDifficulty = requestedDifficulty;
+        appStorage.setItem(STORAGE_KEYS.currentDifficulty, requestedDifficulty);
+    }
+}
+
+function getRequestedScreen() {
+    const params = new URLSearchParams(window.location.search);
+    const requestedScreen = params.get("screen");
+
+    if (requestedScreen === "arena") {
+        launchTrainPage();
+        return "overview";
+    }
+
+    return requestedScreen && screenElements[requestedScreen] ? requestedScreen : "overview";
+}
+
 function buildJourneySteps() {
-    elements.journeySteps.innerHTML = FLOW_STEPS.map((step, index) => `
+    elements.journeySteps.innerHTML = NAV_FLOW_STEPS.map((step, index) => `
         <button class="journey-step" type="button" data-flow-step="${step.key}">
             <span class="journey-step-index">${String(index + 1).padStart(2, "0")}</span>
             <strong>${step.label}</strong>
@@ -237,7 +275,7 @@ function handleDifficultySelection(event) {
     }
 
     state.currentDifficulty = button.dataset.difficulty;
-    storage.setItem(STORAGE_KEYS.currentDifficulty, state.currentDifficulty);
+    appStorage.setItem(STORAGE_KEYS.currentDifficulty, state.currentDifficulty);
     prepareSession();
     updateDifficultyControlState();
     refreshAllStatic();
@@ -250,7 +288,7 @@ function handleBookSelection(event) {
     }
 
     state.currentBook = button.dataset.book;
-    storage.setItem(STORAGE_KEYS.currentBook, state.currentBook);
+    appStorage.setItem(STORAGE_KEYS.currentBook, state.currentBook);
     prepareSession();
     updateBookControlState();
     refreshAllStatic();
@@ -314,6 +352,17 @@ function updateLeaderboardControlState() {
     elements.leaderboardFilterControls.querySelectorAll("[data-lb-filter]").forEach((button) => {
         button.classList.toggle("is-active", button.dataset.lbFilter === state.leaderboardFilter);
     });
+}
+
+function buildTrainUrl() {
+    const url = new URL(TRAIN_PAGE_PATH, window.location.href);
+    url.searchParams.set("book", state.currentBook);
+    url.searchParams.set("difficulty", state.currentDifficulty);
+    return url.toString();
+}
+
+function launchTrainPage() {
+    window.location.href = buildTrainUrl();
 }
 
 function showScreen(screenKey) {
@@ -415,7 +464,7 @@ function refreshRouteState() {
     elements.journeyLabel.textContent = meta.title;
     elements.journeyDetail.textContent = meta.detail;
 
-    const currentIndex = FLOW_STEPS.findIndex((step) => step.key === state.currentScreen);
+    const currentIndex = NAV_FLOW_STEPS.findIndex((step) => step.key === state.currentScreen);
     elements.journeySteps.querySelectorAll("[data-flow-step]").forEach((button, index) => {
         const target = button.dataset.flowStep;
         button.classList.toggle("is-active", currentIndex === index);
@@ -806,10 +855,7 @@ function resetSession() {
 }
 
 function enterArena() {
-    prepareSession();
-    refreshAllStatic();
-    refreshArenaRealtime();
-    showScreen("arena");
+    launchTrainPage();
 }
 
 function startSession() {
@@ -1005,18 +1051,18 @@ function migrateLocalUsername(previousUsername, nextUsername) {
         const currentName = entry.username || previousUsername;
         return currentName === previousUsername ? { ...entry, username: nextUsername } : entry;
     });
-    storage.setItem(STORAGE_KEYS.history, JSON.stringify(updatedHistory));
+    appStorage.setItem(STORAGE_KEYS.history, JSON.stringify(updatedHistory));
 
-    const leaderboardRecords = JSON.parse(storage.getItem("typequest_leaderboard") || "[]").map((entry) => {
+    const leaderboardRecords = JSON.parse(appStorage.getItem("typequest_leaderboard") || "[]").map((entry) => {
         const currentName = entry.username || previousUsername;
         return currentName === previousUsername ? { ...entry, username: nextUsername } : entry;
     });
-    storage.setItem("typequest_leaderboard", JSON.stringify(leaderboardRecords));
+    appStorage.setItem("typequest_leaderboard", JSON.stringify(leaderboardRecords));
 }
 
 function toggleSound() {
     state.soundEnabled = !state.soundEnabled;
-    storage.setItem(STORAGE_KEYS.soundEnabled, String(state.soundEnabled));
+    appStorage.setItem(STORAGE_KEYS.soundEnabled, String(state.soundEnabled));
     refreshSyncStatus();
 }
 
@@ -1097,7 +1143,7 @@ function hashString(input) {
 
 function loadHistory() {
     try {
-        return JSON.parse(storage.getItem(STORAGE_KEYS.history) || "[]");
+        return JSON.parse(appStorage.getItem(STORAGE_KEYS.history) || "[]");
     } catch (error) {
         console.error("TypeQuest history parse failed:", error);
         return [];
@@ -1107,7 +1153,7 @@ function loadHistory() {
 function saveHistory(result) {
     const history = loadHistory();
     history.unshift(result);
-    storage.setItem(STORAGE_KEYS.history, JSON.stringify(history.slice(0, 120)));
+    appStorage.setItem(STORAGE_KEYS.history, JSON.stringify(history.slice(0, 120)));
 }
 
 function clearHistory() {
@@ -1115,8 +1161,8 @@ function clearHistory() {
         return;
     }
 
-    storage.removeItem(STORAGE_KEYS.history);
-    storage.removeItem("typequest_leaderboard");
+    appStorage.removeItem(STORAGE_KEYS.history);
+    appStorage.removeItem("typequest_leaderboard");
     state.lastResult = null;
     refreshAllStatic();
     if (state.currentScreen === "leaderboard") {
