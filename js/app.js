@@ -23,6 +23,8 @@ const STORAGE_KEYS = {
     soundEnabled: "typequest_sound_enabled"
 };
 
+const storage = window.typeQuestStorage || window.localStorage;
+
 const FLOW_STEPS = [
     { key: "overview", label: "总览", detail: "入口与摘要" },
     { key: "difficulty", label: "难度", detail: "校准强度" },
@@ -47,8 +49,8 @@ const SCREEN_META = {
 const UTILITY_SCREENS = new Set(["history", "leaderboard", "profile"]);
 
 const state = {
-    currentBook: localStorage.getItem(STORAGE_KEYS.currentBook) || "cet4",
-    currentDifficulty: localStorage.getItem(STORAGE_KEYS.currentDifficulty) || "normal",
+    currentBook: storage.getItem(STORAGE_KEYS.currentBook) || "cet4",
+    currentDifficulty: storage.getItem(STORAGE_KEYS.currentDifficulty) || "normal",
     currentScreen: "overview",
     utilityReturnScreen: "overview",
     sessionWords: [],
@@ -64,7 +66,7 @@ const state = {
     resultSyncText: "成绩会先写入本地历史。",
     leaderboardType: "local",
     leaderboardFilter: "all",
-    soundEnabled: localStorage.getItem(STORAGE_KEYS.soundEnabled) !== "false",
+    soundEnabled: storage.getItem(STORAGE_KEYS.soundEnabled) !== "false",
     wrongFlash: null,
     timerId: null
 };
@@ -235,7 +237,7 @@ function handleDifficultySelection(event) {
     }
 
     state.currentDifficulty = button.dataset.difficulty;
-    localStorage.setItem(STORAGE_KEYS.currentDifficulty, state.currentDifficulty);
+    storage.setItem(STORAGE_KEYS.currentDifficulty, state.currentDifficulty);
     prepareSession();
     updateDifficultyControlState();
     refreshAllStatic();
@@ -248,7 +250,7 @@ function handleBookSelection(event) {
     }
 
     state.currentBook = button.dataset.book;
-    localStorage.setItem(STORAGE_KEYS.currentBook, state.currentBook);
+    storage.setItem(STORAGE_KEYS.currentBook, state.currentBook);
     prepareSession();
     updateBookControlState();
     refreshAllStatic();
@@ -1003,18 +1005,18 @@ function migrateLocalUsername(previousUsername, nextUsername) {
         const currentName = entry.username || previousUsername;
         return currentName === previousUsername ? { ...entry, username: nextUsername } : entry;
     });
-    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(updatedHistory));
+    storage.setItem(STORAGE_KEYS.history, JSON.stringify(updatedHistory));
 
-    const leaderboardRecords = JSON.parse(localStorage.getItem("typequest_leaderboard") || "[]").map((entry) => {
+    const leaderboardRecords = JSON.parse(storage.getItem("typequest_leaderboard") || "[]").map((entry) => {
         const currentName = entry.username || previousUsername;
         return currentName === previousUsername ? { ...entry, username: nextUsername } : entry;
     });
-    localStorage.setItem("typequest_leaderboard", JSON.stringify(leaderboardRecords));
+    storage.setItem("typequest_leaderboard", JSON.stringify(leaderboardRecords));
 }
 
 function toggleSound() {
     state.soundEnabled = !state.soundEnabled;
-    localStorage.setItem(STORAGE_KEYS.soundEnabled, String(state.soundEnabled));
+    storage.setItem(STORAGE_KEYS.soundEnabled, String(state.soundEnabled));
     refreshSyncStatus();
 }
 
@@ -1095,7 +1097,7 @@ function hashString(input) {
 
 function loadHistory() {
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEYS.history) || "[]");
+        return JSON.parse(storage.getItem(STORAGE_KEYS.history) || "[]");
     } catch (error) {
         console.error("TypeQuest history parse failed:", error);
         return [];
@@ -1105,7 +1107,7 @@ function loadHistory() {
 function saveHistory(result) {
     const history = loadHistory();
     history.unshift(result);
-    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(history.slice(0, 120)));
+    storage.setItem(STORAGE_KEYS.history, JSON.stringify(history.slice(0, 120)));
 }
 
 function clearHistory() {
@@ -1113,8 +1115,8 @@ function clearHistory() {
         return;
     }
 
-    localStorage.removeItem(STORAGE_KEYS.history);
-    localStorage.removeItem("typequest_leaderboard");
+    storage.removeItem(STORAGE_KEYS.history);
+    storage.removeItem("typequest_leaderboard");
     state.lastResult = null;
     refreshAllStatic();
     if (state.currentScreen === "leaderboard") {

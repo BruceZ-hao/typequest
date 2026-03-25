@@ -1,4 +1,16 @@
 // js/leaderboard.js
+const storage = window.typeQuestStorage || window.localStorage;
+
+function loadLocalLeaderboardRecords() {
+    try {
+        return JSON.parse(storage.getItem('typequest_leaderboard') || '[]');
+    } catch (error) {
+        console.warn('TypeQuest leaderboard cache parse failed, resetting local records.', error);
+        storage.removeItem('typequest_leaderboard');
+        return [];
+    }
+}
+
 class Leaderboard {
     constructor() {
         this.db = null;
@@ -26,7 +38,7 @@ class Leaderboard {
 
     // 初始化用户名
     initUsername() {
-        const saved = localStorage.getItem('typequest_username');
+        const saved = storage.getItem('typequest_username');
         if (saved) {
             this.currentUser = saved;
         } else {
@@ -37,7 +49,7 @@ class Leaderboard {
     // 设置用户名
     setUsername(username) {
         this.currentUser = username || '匿名玩家_' + Math.floor(Math.random() * 10000);
-        localStorage.setItem('typequest_username', this.currentUser);
+        storage.setItem('typequest_username', this.currentUser);
         return this.currentUser;
     }
 
@@ -96,7 +108,7 @@ class Leaderboard {
 
     // 保存到本地
     saveToLocal(record) {
-        const localRecords = JSON.parse(localStorage.getItem('typequest_leaderboard') || '[]');
+        const localRecords = loadLocalLeaderboardRecords();
         localRecords.push(record);
         
         // 只保留最佳记录
@@ -108,7 +120,7 @@ class Leaderboard {
             }
         });
         
-        localStorage.setItem('typequest_leaderboard', JSON.stringify(Object.values(bestRecords)));
+        storage.setItem('typequest_leaderboard', JSON.stringify(Object.values(bestRecords)));
     }
 
     // 获取排行榜数据
@@ -144,7 +156,7 @@ class Leaderboard {
 
     // 获取本地排行榜
     getLocalLeaderboard(book = 'all', limit = 20) {
-        const localRecords = JSON.parse(localStorage.getItem('typequest_leaderboard') || '[]');
+        const localRecords = loadLocalLeaderboardRecords();
         const deduped = this.dedupeRecords(localRecords);
 
         deduped.sort((a, b) => b.wpm - a.wpm || b.accuracy - a.accuracy);
@@ -187,7 +199,7 @@ class Leaderboard {
 
     // 获取本地个人最佳
     getLocalPersonalBest(username, book) {
-        const localRecords = JSON.parse(localStorage.getItem('typequest_leaderboard') || '[]');
+        const localRecords = loadLocalLeaderboardRecords();
         const userRecords = localRecords.filter(r => r.username === username);
         
         if (userRecords.length === 0) return null;
